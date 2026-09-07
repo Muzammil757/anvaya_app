@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "project": "ANVAYA - SIH 2026",
+    "module": "Live Q&A Walkie-Talkie Mode",
+    "lesson_context": "Class 3 Math - FLN Curriculum - Basic Counting & Arithmetic",
+    "target_latency_sla_seconds": 2.5,
+    "note": "Ol Chiki text below is a best-effort placeholder for demo purposes. Have a Santali-speaking mentor or FLN curriculum contact verify script/phrasing before the final demo — this is the single highest-risk accuracy item in the pitch."
+  },
+  "scenarios": [
+    {
+      "scenario_id": "qna_001",
+      "type": "student_query",
+      "speaker": "student",
+      "speaker_language": "Santali",
+      "input_script": "ol_chiki",
+      "input_text": "ᱟᱢ ᱫᱚ ᱚᱠᱟ ᱠᱟᱱᱟ, ᱧᱮᱞ ᱢᱮ ᱡᱟᱦᱟᱸ ᱥᱮᱸᱫᱽᱨᱟ ᱠᱟᱱᱟ?",
+      "input_transliteration": "Am do oka kana, nel me jahan sendra kana?",
+      "input_translation_hindi": "यह कितनी संख्या है, देखिए यह क्या है?",
+      "context_topic": "Number recognition (counting objects)",
+      "translated_response": {
+        "output_language": "Hindi",
+        "output_script": "devanagari",
+        "output_text": "यह संख्या पाँच है। आपके पास पाँच सेब हैं।",
+        "audio_ref": "assets/audio/hindi/response_001_five_apples.mp3"
+      },
+      "timestamp": "09:14:02",
+      "processing_pipeline": "IndicConformer ASR (Santali) → IndicTrans2 (Santali→Hindi) → On-device TTS",
+      "simulated_latency_seconds": 1.8
+    },
+    {
+      "scenario_id": "qna_002",
+      "type": "teacher_prompt",
+      "speaker": "teacher",
+      "speaker_language": "Hindi",
+      "input_script": "devanagari",
+      "input_text": "पाँच और तीन जोड़ने पर कितना होता है?",
+      "input_transliteration": "Paanch aur teen jodne par kitna hota hai?",
+      "context_topic": "Basic addition (single-digit)",
+      "translated_response": {
+        "output_language": "Santali",
+        "output_script": "ol_chiki",
+        "output_text": "ᱢᱚᱬᱮ ᱟᱨ ᱯᱮ ᱥᱮᱫᱟᱭ ᱠᱮᱫᱠᱚᱴᱮ ᱰᱚᱸ ᱟᱸᱴᱶᱟᱱ ᱦᱩᱭᱴ ᱠᱟᱱᱟ",
+        "output_transliteration": "Mone ar pe sedai kedkote don anthan huyi kana",
+        "output_translation_note": "'Five plus three equals eight' — phrasing to be confirmed with native speaker",
+        "audio_ref": "assets/audio/santali/response_002_five_plus_three.mp3"
+      },
+      "timestamp": "09:16:47",
+      "processing_pipeline": "IndicConformer ASR (Hindi) → IndicTrans2 (Hindi→Santali) → On-device TTS",
+      "simulated_latency_seconds": 1.6
+    },
+    {
+      "scenario_id": "qna_003",
+      "type": "student_query",
+      "speaker": "student",
+      "speaker_language": "Santali",
+      "input_script": "ol_chiki",
+      "input_text": "ᱤᱧ ᱫᱚ ᱵᱟᱝ ᱵᱩᱡᱷᱟᱣ ᱞᱮᱫᱟᱭ, ᱫᱟᱲᱮᱭᱟᱜ ᱢᱮ",
+      "input_transliteration": "Ing do baang bujhau ledai, dareyag me",
+      "input_translation_hindi": "मुझे समझ नहीं आया, दोबारा बताइए",
+      "context_topic": "Clarification request during subtraction exercise",
+      "translated_response": {
+        "output_language": "Hindi",
+        "output_script": "devanagari",
+        "output_text": "ठीक है, फिर से सुनिए। दस में से चार घटाने पर छह बचता है।",
+        "audio_ref": "assets/audio/hindi/response_003_repeat_subtraction.mp3"
+      },
+      "timestamp": "09:21:33",
+      "processing_pipeline": "IndicConformer ASR (Santali) → IndicTrans2 (Santali→Hindi) → On-device TTS",
+      "simulated_latency_seconds": 2.1
+    }
+  ]
+}

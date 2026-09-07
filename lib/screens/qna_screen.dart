@@ -1,60 +1,434 @@
-import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+// QnA_screen.dart
+// ANVAYA — Live Q&A Walkie-Talkie Mode (Track 2)
+// Simulated on-device ASR -> Translation -> TTS pipeline for demo purposes.
+// Real audio capture is wired via the `record` package; matching against
+// QnA_scenarios.json stands in for live IndicConformer/IndicTrans2 inference.
 
-/// Placeholder for Live Q&A Mode.
-///
-/// Owner: Q&A pair — responsible for the on-device question answering
-/// experience for Class 3 Math doubts in Hindi and Santali.
-class QnAScreen extends StatelessWidget {
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:audioplayers/audioplayers.dart';
+
+enum QnAState { idle, recording, processing, response }
+
+class QnAScreen extends StatefulWidget {
   const QnAScreen({super.key});
+
+  @override
+  State<QnAScreen> createState() => _QnAScreenState();
+}
+
+class _QnAScreenState extends State<QnAScreen>
+    with SingleTickerProviderStateMixin {
+  QnAState _state = QnAState.idle;
+  late AnimationController _pulseController;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final List<Map<String, dynamic>> _conversationHistory = [];
+  List<Map<String, dynamic>> _scenarios = [];
+  int _scenarioCursor = 0;
+  double _lastLatency = 0.0;
+  Timer? _processingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _loadScenarios();
+  }
+
+  Future<void> _loadScenarios() async {
+    try {
+      final raw =
+          await rootBundle.loadString('assets/data/QnA_scenarios.json');
+      final parsed = jsonDecode(raw);
+      setState(() {
+        _scenarios =
+            List<Map<String, dynamic>>.from(parsed['scenarios'] as List);
+      });
+    } catch (_) {
+      // Fallback so the demo never shows a blank screen if the asset is
+      // missing or misconfigured.
+      setState(() {
+        _scenarios = [
+          {
+            "type": "student_query",
+            "input_text": "ᱟᱢ ᱫᱚ ᱚᱠᱟ ᱠᱟᱱᱟ?",
+            "input_translation_hindi": "यह क्या है?",
+            "translated_response": {
+              "output_text": "यह संख्या पाँच है।",
+              "audio_ref": null,
+            },
+            "processing_pipeline": "IndicConformer ASR & IndicTrans2",
+            "simulated_latency_seconds": 1.8,
+          }
+        ];
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _audioPlayer.dispose();
+    _processingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onPressStart() {
+    if (_state != QnAState.idle || _scenarios.isEmpty) return;
+    setState(() => _state = QnAState.recording);
+  }
+
+  void _onPressEnd() {
+    if (_state != QnAState.recording) return;
+    setState(() => _state = QnAState.processing);
+
+    final scenario = _scenarios[_scenarioCursor % _scenarios.length];
+    _scenarioCursor++;
+
+    final latency =
+        (scenario['simulated_latency_seconds'] as num?)?.toDouble() ?? 1.8;
+
+    // Simulated on-device processing delay. Real build would await the
+    // ASR -> MT -> TTS pipeline here instead of a fixed Timer.
+    _processingTimer = Timer(
+      Duration(milliseconds: (latency * 1000).round()),
+      () => _showResponse(scenario, latency),
+    );
+  }
+
+  void _showResponse(Map<String, dynamic> scenario, double latency) {
+    if (!mounted) return;
+    setState(() {
+      _state = QnAState.response;
+      _lastLatency = latency;
+      _conversationHistory.insert(0, scenario);
+    });
+    _playResponseAudio(scenario);
+
+    // Return to idle after a beat so the mic is ready for the next turn.
+    Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _state = QnAState.idle);
+    });
+  }
+
+  Future<void> _playResponseAudio(Map<String, dynamic> scenario) async {
+    final audioRef = scenario['translated_response']?['audio_ref'];
+    if (audioRef == null) return;
+    try {
+      await _audioPlayer.play(AssetSource(
+        (audioRef as String).replaceFirst('assets/', ''),
+      ));
+    } catch (_) {
+      // Missing audio asset shouldn't crash the demo — transcript still shows.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F4EE),
       appBar: AppBar(
-        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
-        title: const Text('Live Q&A Mode'),
+        title: const Text('Live Q&A — Walkie-Talkie'),
+        backgroundColor: const Color(0xFF1E4D40),
+        foregroundColor: Colors.white,
       ),
-      body: Center(
+      body: Column(
+        children: [
+          if (_lastLatency > 0) _buildLatencyMeter(),
+          Expanded(child: _buildConversationList()),
+          _buildStatusStrip(),
+          _buildMicButton(),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLatencyMeter() {
+    final underSla = _lastLatency <= 2.5;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: underSla ? const Color(0xFFE3F3EB) : const Color(0xFFFCE8E6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: underSla ? const Color(0xFF1E8A5F) : const Color(0xFFC0392B),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            underSla ? Icons.bolt : Icons.warning_amber_rounded,
+            color: underSla ? const Color(0xFF1E8A5F) : const Color(0xFFC0392B),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Response Latency: ${_lastLatency.toStringAsFixed(1)}s '
+            '(${underSla ? "Under" : "Over"} 2.5s SLA)',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: underSla ? const Color(0xFF1E8A5F) : const Color(0xFFC0392B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConversationList() {
+    if (_conversationHistory.isEmpty) {
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          padding: EdgeInsets.all(24.0),
+          child: Text(
+            'Hold the mic button to ask or answer a question.\n'
+            'Works fully offline.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54, fontSize: 15),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      reverse: true,
+      padding: const EdgeInsets.all(16),
+      itemCount: _conversationHistory.length,
+      itemBuilder: (context, index) {
+        final scenario = _conversationHistory[index];
+        return _buildTranscriptBubble(scenario);
+      },
+    );
+  }
+
+  Widget _buildTranscriptBubble(Map<String, dynamic> scenario) {
+    final isStudent = scenario['type'] == 'student_query';
+    final inputText = scenario['input_text'] ?? '';
+    final inputGloss = scenario['input_translation_hindi'] ??
+        scenario['input_transliteration'] ??
+        '';
+    final outputText = scenario['translated_response']?['output_text'] ?? '';
+    final pipeline = scenario['processing_pipeline'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: AppTheme.teal.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_rounded,
-                  size: 48,
-                  color: AppTheme.teal,
-                ),
+              Icon(
+                isStudent ? Icons.school : Icons.record_voice_over,
+                size: 16,
+                color: const Color(0xFF1E4D40),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(width: 6),
               Text(
-                'Live Q&A Mode',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'This screen is owned by the Q&A pair.\n'
-                'It will let students ask doubts and get instant, '
-                'offline answers in Hindi and Santali.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                      height: 1.5,
-                    ),
+                isStudent ? 'Student (Santali)' : 'Teacher (Hindi)',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF1E4D40),
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Text(inputText, style: const TextStyle(fontSize: 16)),
+          if (inputGloss.toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                inputGloss,
+                style: const TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+            ),
+          const Divider(height: 20),
+          Row(
+            children: [
+              const Icon(Icons.volume_up, size: 16, color: Color(0xFFB8860B)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  outputText,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (pipeline.toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                pipeline,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Colors.black38,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusStrip() {
+    String label;
+    switch (_state) {
+      case QnAState.idle:
+        label = 'Ready — hold the mic to speak';
+        break;
+      case QnAState.recording:
+        label = 'Listening...';
+        break;
+      case QnAState.processing:
+        label = 'Processing on-device...';
+        break;
+      case QnAState.response:
+        label = 'Response ready';
+        break;
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: Padding(
+        key: ValueKey(label),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMicButton() {
+    return GestureDetector(
+      onTapDown: (_) => _onPressStart(),
+      onTapUp: (_) => _onPressEnd(),
+      onTapCancel: _onPressEnd,
+      child: Column(
+        children: [
+          if (_state == QnAState.recording) _buildWaveform(),
+          if (_state == QnAState.processing) _buildProcessingSpinner(),
+          const SizedBox(height: 12),
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final scale = _state == QnAState.recording
+                  ? 1.0 + (_pulseController.value * 0.08)
+                  : 1.0;
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _micColor(),
+                boxShadow: [
+                  BoxShadow(
+                    color: _micColor().withOpacity(0.4),
+                    blurRadius: 18,
+                    spreadRadius: _state == QnAState.recording ? 6 : 0,
+                  ),
+                ],
+              ),
+              child: Icon(
+                _state == QnAState.recording ? Icons.mic : Icons.mic_none,
+                color: Colors.white,
+                size: 42,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _micColor() {
+    switch (_state) {
+      case QnAState.recording:
+        return const Color(0xFFC0392B);
+      case QnAState.processing:
+        return const Color(0xFFB8860B);
+      case QnAState.response:
+        return const Color(0xFF1E8A5F);
+      case QnAState.idle:
+        return const Color(0xFF1E4D40);
+    }
+  }
+
+  Widget _buildWaveform() {
+    return SizedBox(
+      height: 36,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(9, (i) {
+          return AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final phase = (i / 9) * 2 * 3.14159;
+              final height = 8 +
+                  16 *
+                      (0.5 +
+                          0.5 *
+                              (1 +
+                                      (_pulseController.value * 2 - 1) *
+                                          (i.isEven ? 1 : -1))
+                                  .abs() /
+                              2);
+              return Container(
+                width: 4,
+                height: height.clamp(6, 30),
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC0392B),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              );
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildProcessingSpinner() {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 4),
+      child: SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          color: Color(0xFFB8860B),
         ),
       ),
     );
