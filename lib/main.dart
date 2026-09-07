@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/home_dashboard.dart';
 import 'theme/app_theme.dart';
+import 'screens/qna_screen.dart';
 
 void main() {
   runApp(const AnvayaApp());
@@ -15,7 +16,7 @@ class AnvayaApp extends StatelessWidget {
       title: 'ANVAYA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const HomeDashboard(),
+      home: const QnAScreen(),
     );
   }
 }
