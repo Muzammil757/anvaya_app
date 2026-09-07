@@ -225,7 +225,7 @@ class _QnAScreenState extends State<QnAScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -354,7 +354,7 @@ class _QnAScreenState extends State<QnAScreen>
                 color: _micColor(),
                 boxShadow: [
                   BoxShadow(
-                    color: _micColor().withOpacity(0.4),
+                    color: _micColor().withValues(alpha: 0.4),
                     blurRadius: 18,
                     spreadRadius: _state == QnAState.recording ? 6 : 0,
                   ),
@@ -394,7 +394,6 @@ class _QnAScreenState extends State<QnAScreen>
           return AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              final phase = (i / 9) * 2 * 3.14159;
               final height = 8 +
                   16 *
                       (0.5 +

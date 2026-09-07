@@ -54,13 +54,35 @@ void main() {
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
     await tester.tap(finder);
-    await tester.pumpAndSettle();
+    // QnAScreen runs a perpetual mic-pulse animation, so pumpAndSettle()
+    // would never terminate here — pump once to dispatch the tap/route
+    // push, then a bounded duration to let the push transition finish.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.widgetWithText(AppBar, 'Live Q&A Mode'), findsOneWidget);
+    expect(
+      find.widgetWithText(AppBar, 'Live Q&A — Walkie-Talkie'),
+      findsOneWidget,
+    );
+
+    // Navigate back so QnAScreen's perpetual mic-pulse ticker is disposed
+    // here rather than leaking into the next test.
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 
-  testWidgets('Tapping Worksheet Engine navigates to WorksheetScreen',
-      (WidgetTester tester) async {
+  // Both WorksheetScreen entry points (the dashboard card and the vault's
+  // Preview button) are exercised in a single test. WorksheetScreen loads
+  // assets/data/worksheet_content.json via rootBundle on each push; under
+  // flutter_test that load only resolves reliably within the *first*
+  // testWidgets block that touches it in a given file — a second, separate
+  // test block awaiting the same asset key hangs indefinitely. Pushing it
+  // twice from within one test (with a pop in between) works fine, so both
+  // paths are verified here instead of in separate tests.
+  testWidgets(
+      'Worksheet Engine card and Archive / Vault Preview both navigate to '
+      'WorksheetScreen', (WidgetTester tester) async {
     await tester.pumpWidget(const AnvayaApp());
 
     final finder = find.text('Worksheet Engine');
@@ -70,12 +92,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(AppBar, 'Worksheet Mode'), findsOneWidget);
-  });
 
-  testWidgets(
-      'Switching to the Archive / Vault tab shows the 3 cached items',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Archive / Vault'));
     await tester.pumpAndSettle();
@@ -84,16 +103,6 @@ void main() {
     expect(find.text('Class 3 Addition Practice Sheet'), findsOneWidget);
     expect(find.text('Lesson 1 Counting Audio Pack'), findsOneWidget);
     expect(find.text('Recent Walkie-Talkie Session'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Preview'), findsOneWidget);
-  });
-
-  testWidgets(
-      'Tapping Preview in the Archive / Vault tab navigates to '
-      'WorksheetScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
-
-    await tester.tap(find.text('Archive / Vault'));
-    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Preview'));
     await tester.pumpAndSettle();

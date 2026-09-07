@@ -1,34 +1,44 @@
-name: anvaya
+name: anvaya_app
 description: "ANVAYA — AI-powered offline-first vernacular learning app."
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ^3.13.2
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # Standard starter icon set — kept only if your project already relies on it
+  # Standard starter icon set.
   cupertino_icons: ^1.0.8
 
-  # Required by worksheet_screen.dart for on-device PDF generation
-  pdf: ^3.11.1
+  # Theme — used by app_theme.dart for the Plus Jakarta Sans type scale.
+  google_fonts: ^6.2.1
 
-  # Required by worksheet_screen.dart for PDF preview, printing, and sharing
-  printing: ^5.13.4
+  # QnA / Walkie-Talkie mode — used by qna_screen.dart for cached response playback.
+  audioplayers: ^6.0.0
+
+  # Shared file-system access for cached/offline content.
+  path_provider: ^2.1.3
+
+  # Worksheet mode — used by worksheet_screen.dart for on-device PDF generation.
+  pdf: ^3.10.8
+
+  # Worksheet mode — used by worksheet_screen.dart for PDF preview, printing, and sharing.
+  printing: ^5.13.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/data/worksheet_content.json
+    - assets/data/
+    - assets/audio/
 
   fonts:
     - family: NotoSansDevanagari
