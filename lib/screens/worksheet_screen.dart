@@ -17,6 +17,13 @@
 //     instead of being silently swallowed.
 //  4. Everything remains 100% offline — JSON and both fonts load from
 //     local Flutter assets only.
+//
+// UI THEME POLISH:
+//  5. Replaced hardcoded Material colors with design system tokens from
+//     AppTheme: near-white background, white cards with 20px radius and
+//     a soft ambient shadow, and rose container/accent tokens for the
+//     header and key accents. PDF output styling is untouched — this pass
+//     only covers the on-screen widget tree.
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -25,6 +32,8 @@ import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
+import '../theme/app_theme.dart';
 
 /// Simple data model for a single worksheet question.
 class WorksheetQuestion {
@@ -131,6 +140,10 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
 
   /// Builds the full A4 bilingual PDF as bytes, entirely on-device.
   /// Used by both the preview screen and (if you ever need it) direct export.
+  ///
+  /// NOTE: PDF output styling is intentionally left as-is (untouched by the
+  /// UI theme polish pass) — the printing package uses its own `pw.*` widget
+  /// set, which is separate from the on-screen Material theme.
   Future<Uint8List> _buildPdfBytes() async {
     final pdfDoc = pw.Document();
 
@@ -256,9 +269,20 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Worksheet Mode'),
-        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
+        backgroundColor: AppTheme.roseContainer,
+        foregroundColor: AppTheme.roseAccent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Worksheet Mode',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        leading: BackButton(
+          color: AppTheme.roseAccent,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
       ),
       body: SafeArea(child: _buildBody()),
     );
@@ -266,7 +290,9 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.roseAccent),
+      );
     }
 
     if (_errorMessage != null) {
@@ -276,9 +302,13 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(Icons.error_outline, size: 48, color: AppTheme.roseAccent),
               const SizedBox(height: 12),
-              Text(_errorMessage!, textAlign: TextAlign.center),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.textPrimary),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadWorksheetContent,
@@ -306,105 +336,133 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
     );
   }
 
+  /// Shared card decoration: white surface, 20px radius, soft ambient
+  /// shadow — per the design system, in place of the old `Card(elevation: 2,
+  /// borderRadius: 12)` look.
+  BoxDecoration get _cardDecoration => BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppTheme.softShadow,
+      );
+
   Widget _buildLessonInfoCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _classLevel,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _classLevel,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
             ),
-            const SizedBox(height: 4),
-            Text(_subject, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 4),
-            Text(_lesson, style: TextStyle(fontSize: 16, color: Colors.grey[700])),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _subject,
+            style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _lesson,
+            style: const TextStyle(fontSize: 16, color: AppTheme.textSecondary),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildQuestionCard(WorksheetQuestion q) {
-    return Card(
-      elevation: 2,
+    return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Question ${q.questionNumber}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Question ${q.questionNumber}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
             ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
 
-            // Visual hint — wrapped in a scroll-safe container to avoid
-            // overflow on narrow screens with longer hint strings.
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade200),
+          // Visual hint — wrapped in a scroll-safe container to avoid
+          // overflow on narrow screens with longer hint strings.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.skyContainer,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              q.visualHint,
+              style: const TextStyle(fontSize: 18, color: AppTheme.textPrimary),
+              textAlign: TextAlign.center,
+              softWrap: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          const Text(
+            'Hindi:',
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.roseAccent),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            q.questionHindi,
+            style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              const Text(
+                'Santali:',
+                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.mintAccent),
               ),
-              child: Text(
-                q.visualHint,
-                style: const TextStyle(fontSize: 18),
-                textAlign: TextAlign.center,
-                softWrap: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            const Text(
-              'Hindi:',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
-            ),
-            const SizedBox(height: 2),
-            Text(q.questionHindi, style: const TextStyle(fontSize: 15)),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                const Text(
-                  'Santali:',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
-                ),
-                if (!q.santaliVerified) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'unverified',
-                      style: TextStyle(fontSize: 10, color: Colors.deepOrange),
-                    ),
+              if (!q.santaliVerified) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.roseContainer,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ],
+                  child: const Text(
+                    'unverified',
+                    style: TextStyle(fontSize: 10, color: AppTheme.roseAccent),
+                  ),
+                ),
               ],
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            q.questionSantali,
+            style: const TextStyle(
+              fontSize: 15,
+              fontFamily: 'NotoSansOlChiki',
+              color: AppTheme.textPrimary,
             ),
-            const SizedBox(height: 2),
-            Text(
-              q.questionSantali,
-              style: const TextStyle(fontSize: 15, fontFamily: 'NotoSansOlChiki'),
-            ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 14),
 
-            const Text('Answer: __________________'),
-          ],
-        ),
+          const Text(
+            'Answer: __________________',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -426,9 +484,10 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple,
+          backgroundColor: AppTheme.roseAccent,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     );
@@ -451,7 +510,13 @@ class _WorksheetPdfPreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Worksheet Preview')),
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.roseContainer,
+        foregroundColor: AppTheme.roseAccent,
+        elevation: 0,
+        title: const Text('Worksheet Preview'),
+      ),
       body: PdfPreview(
         // Called by PdfPreview whenever it needs the PDF bytes
         // (initial render, and again if the user changes print settings).
