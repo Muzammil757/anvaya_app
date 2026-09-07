@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:anvaya_app/theme/app_theme.dart';
 
 enum QnAState { idle, recording, processing, response }
 
@@ -101,6 +102,16 @@ class _QnAScreenState extends State<QnAScreen>
     );
   }
 
+  /// One-tap scenario selector: skips the simulated mic/processing delay and
+  /// immediately surfaces the picked scenario's transcript + audio, for fast
+  /// manual demoing alongside the push-to-talk flow.
+  void _onScenarioChipTap(Map<String, dynamic> scenario) {
+    _processingTimer?.cancel();
+    final latency =
+        (scenario['simulated_latency_seconds'] as num?)?.toDouble() ?? 1.8;
+    _showResponse(scenario, latency);
+  }
+
   void _showResponse(Map<String, dynamic> scenario, double latency) {
     if (!mounted) return;
     setState(() {
@@ -131,20 +142,53 @@ class _QnAScreenState extends State<QnAScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F4EE),
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Live Q&A — Walkie-Talkie'),
-        backgroundColor: const Color(0xFF1E4D40),
+        backgroundColor: AppTheme.lavenderAccent,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
           if (_lastLatency > 0) _buildLatencyMeter(),
+          _buildScenarioSelector(),
           Expanded(child: _buildConversationList()),
           _buildStatusStrip(),
           _buildMicButton(),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  /// One-tap quick-action chips — one per scenario in qna_scenarios.json —
+  /// so a scenario can be triggered instantly without holding the mic.
+  Widget _buildScenarioSelector() {
+    if (_scenarios.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        itemCount: _scenarios.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final scenario = _scenarios[index];
+          return ActionChip(
+            label: Text('Scenario ${index + 1}'),
+            backgroundColor: AppTheme.lavenderContainer,
+            labelStyle: const TextStyle(
+              color: AppTheme.lavenderAccent,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+              side: BorderSide.none,
+            ),
+            onPressed: () => _onScenarioChipTap(scenario),
+          );
+        },
       ),
     );
   }
@@ -221,15 +265,9 @@ class _QnAScreenState extends State<QnAScreen>
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +277,7 @@ class _QnAScreenState extends State<QnAScreen>
               Icon(
                 isStudent ? Icons.school : Icons.record_voice_over,
                 size: 16,
-                color: const Color(0xFF1E4D40),
+                color: AppTheme.lavenderAccent,
               ),
               const SizedBox(width: 6),
               Text(
@@ -247,7 +285,7 @@ class _QnAScreenState extends State<QnAScreen>
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: Color(0xFF1E4D40),
+                  color: AppTheme.lavenderAccent,
                 ),
               ),
             ],
@@ -381,7 +419,7 @@ class _QnAScreenState extends State<QnAScreen>
       case QnAState.response:
         return const Color(0xFF1E8A5F);
       case QnAState.idle:
-        return const Color(0xFF1E4D40);
+        return AppTheme.lavenderAccent;
     }
   }
 
