@@ -43,7 +43,7 @@ class _QnAScreenState extends State<QnAScreen>
   Future<void> _loadScenarios() async {
     try {
       final raw =
-          await rootBundle.loadString('assets/data/QnA_scenarios.json');
+          await rootBundle.loadString('assets/data/qna_scenarios.json');
       final parsed = jsonDecode(raw);
       setState(() {
         _scenarios =
