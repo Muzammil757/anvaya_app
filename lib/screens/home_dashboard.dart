@@ -192,7 +192,7 @@ class _WelcomeCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Jharkhand Multilingual FLN Initiative',
+              'Multilingual Foundational Learning Platform',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppTheme.textSecondary,
                     fontWeight: FontWeight.w500,
