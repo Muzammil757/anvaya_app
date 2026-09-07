@@ -424,28 +424,9 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
           ),
           const SizedBox(height: 12),
 
-          Row(
-            children: [
-              const Text(
-                'Santali:',
-                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.mintAccent),
-              ),
-              if (!q.santaliVerified) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.roseContainer,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'unverified',
-                    style: TextStyle(fontSize: 10, color: AppTheme.roseAccent),
-                  ),
-                ),
-              ],
-            ],
+          const Text(
+            'Santali:',
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.mintAccent),
           ),
           const SizedBox(height: 2),
           Text(
