@@ -1,0 +1,44 @@
+{
+  "worksheet_title": "Jharkhand Primary FLN Practice Sheet",
+  "class_level": "Class 3",
+  "subject": "Mathematics",
+  "lesson": "Addition up to 20",
+  "questions": [
+    {
+      "question_number": 1,
+      "activity_type": "counting",
+      "question_hindi": "गिनकर सही उत्तर लिखिए।",
+      "question_santali": "ᱨᱮᱠᱷᱟ ᱠᱟᱛᱮ ᱴᱷᱤᱠ ᱩᱛᱟᱨ ᱚᱞ ᱢᱮ ᱾",
+      "santali_verified": false,
+      "santali_note": "PLACEHOLDER ONLY — valid Ol Chiki Unicode used for font/UI testing. Must be reviewed and corrected by a qualified Santali speaker/linguist before classroom use.",
+      "visual_hint": "⭐⭐⭐ + ⭐⭐ = ___"
+    },
+    {
+      "question_number": 2,
+      "activity_type": "visual_addition",
+      "question_hindi": "चित्र देखकर जोड़ का सही उत्तर लिखिए।",
+      "question_santali": "ᱪᱤᱛᱟᱹᱨ ᱧᱮᱞ ᱠᱟᱛᱮ ᱡᱚᱲᱟᱣ ᱨᱮᱭᱟᱜ ᱴᱷᱤᱠ ᱩᱛᱟᱨ ᱚᱞ ᱢᱮ ᱾",
+      "santali_verified": false,
+      "santali_note": "PLACEHOLDER ONLY — valid Ol Chiki Unicode used for font/UI testing. Must be reviewed and corrected by a qualified Santali speaker/linguist before classroom use.",
+      "visual_hint": "🍎🍎🍎🍎 + 🍎🍎🍎 = ___"
+    },
+    {
+      "question_number": 3,
+      "activity_type": "basic_addition",
+      "question_hindi": "निम्नलिखित जोड़ को हल कीजिए।",
+      "question_santali": "ᱦᱮᱸᱰᱮ ᱨᱮᱭᱟᱜ ᱡᱚᱲᱟᱣ ᱠᱚ ᱦᱮᱴᱟ ᱢᱮ ᱾",
+      "santali_verified": false,
+      "santali_note": "PLACEHOLDER ONLY — valid Ol Chiki Unicode used for font/UI testing. Must be reviewed and corrected by a qualified Santali speaker/linguist before classroom use.",
+      "visual_hint": "12 + 6 = ___"
+    },
+    {
+      "question_number": 4,
+      "activity_type": "missing_number",
+      "question_hindi": "खाली स्थान में सही अंक भरिए।",
+      "question_santali": "ᱠᱷᱟᱹᱞᱤ ᱡᱟᱭᱜᱟ ᱨᱮ ᱴᱷᱤᱠ ᱮᱞ ᱚᱛᱟᱭ ᱢᱮ ᱾",
+      "santali_verified": false,
+      "santali_note": "PLACEHOLDER ONLY — valid Ol Chiki Unicode used for font/UI testing. Must be reviewed and corrected by a qualified Santali speaker/linguist before classroom use.",
+      "visual_hint": "9 + ___ = 20"
+    }
+  ]
+}
