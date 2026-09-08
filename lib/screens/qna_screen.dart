@@ -134,8 +134,10 @@ class _QnAScreenState extends State<QnAScreen>
       await _audioPlayer.play(AssetSource(
         (audioRef as String).replaceFirst('assets/', ''),
       ));
-    } catch (_) {
-      // Missing audio asset shouldn't crash the demo — transcript still shows.
+    } catch (e) {
+      // Missing/unbundled audio asset shouldn't crash the demo — transcript
+      // still shows; just warn so it's visible during development.
+      debugPrint('QnAScreen: audio playback failed for "$audioRef": $e');
     }
   }
 
@@ -228,27 +230,37 @@ class _QnAScreenState extends State<QnAScreen>
   }
 
   Widget _buildConversationList() {
-    if (_conversationHistory.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text(
-            'Hold the mic button to ask or answer a question.\n'
-            'Works fully offline.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black54, fontSize: 15),
-          ),
-        ),
-      );
-    }
-    return ListView.builder(
-      reverse: true,
-      padding: const EdgeInsets.all(16),
-      itemCount: _conversationHistory.length,
-      itemBuilder: (context, index) {
-        final scenario = _conversationHistory[index];
-        return _buildTranscriptBubble(scenario);
-      },
+    final Widget content = _conversationHistory.isEmpty
+        ? const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Text(
+                'Hold the mic button to ask or answer a question.\n'
+                'Works fully offline.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54, fontSize: 15),
+              ),
+            ),
+          )
+        : ListView.builder(
+            reverse: true,
+            // Extra bottom padding keeps the last (topmost, since the list
+            // is reversed) dialogue card clear of the floating mic button.
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+            itemCount: _conversationHistory.length,
+            itemBuilder: (context, index) {
+              final scenario = _conversationHistory[index];
+              return _buildTranscriptBubble(scenario);
+            },
+          );
+
+    // Cap the transcript width on tablets so cards stay well-proportioned
+    // instead of stretching edge-to-edge.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 750),
+        child: content,
+      ),
     );
   }
 
@@ -261,12 +273,21 @@ class _QnAScreenState extends State<QnAScreen>
     final outputText = scenario['translated_response']?['output_text'] ?? '';
     final pipeline = scenario['processing_pipeline'] ?? '';
 
+    // Two-tone role styling: student turns lean lavender and hug the left
+    // edge; teacher turns lean mint and hug the right edge, like a chat UI.
+    final roleColor = isStudent ? AppTheme.lavenderAccent : AppTheme.mintAccent;
+    final roleContainerColor =
+        isStudent ? AppTheme.lavenderContainer : AppTheme.mintContainer;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: isStudent
+          ? const EdgeInsets.only(bottom: 14, right: 32, left: 8)
+          : const EdgeInsets.only(bottom: 14, left: 32, right: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: roleContainerColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border(left: BorderSide(color: roleColor, width: 4)),
         boxShadow: AppTheme.softShadow,
       ),
       child: Column(
@@ -277,27 +298,30 @@ class _QnAScreenState extends State<QnAScreen>
               Icon(
                 isStudent ? Icons.school : Icons.record_voice_over,
                 size: 16,
-                color: AppTheme.lavenderAccent,
+                color: roleColor,
               ),
               const SizedBox(width: 6),
               Text(
                 isStudent ? 'Student (Santali)' : 'Teacher (Hindi)',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: AppTheme.lavenderAccent,
+                  color: roleColor,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(inputText, style: const TextStyle(fontSize: 16)),
+          Text(
+            inputText,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
           if (inputGloss.toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 inputGloss,
-                style: const TextStyle(fontSize: 13, color: Colors.black54),
+                style: const TextStyle(fontSize: 14, color: Colors.black54),
               ),
             ),
           const Divider(height: 20),
@@ -309,8 +333,8 @@ class _QnAScreenState extends State<QnAScreen>
                 child: Text(
                   outputText,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

@@ -177,7 +177,12 @@ class _WelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    // width: double.infinity keeps the greeting card full-width on tablets,
+    // matching the Action Centre card below it (Card otherwise shrink-wraps
+    // to its widest child's intrinsic width).
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -232,6 +237,7 @@ class _WelcomeCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
