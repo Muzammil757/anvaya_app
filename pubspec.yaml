@@ -35,6 +35,9 @@ dependencies:
   # Interactive Mode — persists the instruction board history on-device.
   shared_preferences: ^2.3.2
 
+  # Lecture Mode — plays per-card pronunciation clips during the slideshow.
+  audioplayers: ^6.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,6 +48,7 @@ flutter:
 
   assets:
     - assets/data/
+    - assets/audio/
 
   fonts:
     - family: NotoSansDevanagari
