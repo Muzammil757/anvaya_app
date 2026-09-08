@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_dashboard.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -15,7 +15,7 @@ class AnvayaApp extends StatelessWidget {
       title: 'ANVAYA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const HomeDashboard(),
+      home: const SplashScreen(),
     );
   }
 }

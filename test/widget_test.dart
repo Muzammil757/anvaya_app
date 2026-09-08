@@ -5,21 +5,32 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:anvaya_app/main.dart';
 
+/// Pumps [AnvayaApp] and advances past SplashScreen's exact 2000ms hold, so
+/// tests land on HomeDashboard the same way they did before the splash
+/// screen was introduced.
+Future<void> pumpPastSplash(WidgetTester tester) async {
+  await tester.pumpWidget(const AnvayaApp());
+  await tester.pump(const Duration(milliseconds: 2100));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets(
       'Home tab shows air-gapped chip, context pills, action centre and '
       'the vertical classroom mode cards, with a 2-destination nav bar',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+    await pumpPastSplash(tester);
 
     expect(find.text('Namaste, Teacher'), findsOneWidget);
     expect(find.text('Air-Gapped'), findsOneWidget);
 
-    expect(find.text('Class 3'), findsOneWidget);
-    expect(find.text('Mathematics'), findsOneWidget);
-    expect(find.text('Santali (Ol Chiki)'), findsOneWidget);
+    expect(find.text('NIPUN Bharat FLN'), findsOneWidget);
+    expect(find.text('Class 3 • Bridge Module'), findsOneWidget);
+    expect(find.text('English ⇄ Santali (Ol Chiki)'), findsOneWidget);
 
-    expect(find.text('Addition & Counting'), findsOneWidget);
+    // Defaults to Unit 1 until Lecture Mode has been opened and navigated.
+    expect(find.text('Numbers 1 to 5'), findsOneWidget);
+    expect(find.text('Resume Unit • Card 1 of 5'), findsOneWidget);
     expect(find.text('Resume Unit'), findsOneWidget);
 
     expect(find.text('Lecture Mode'), findsOneWidget);
@@ -35,7 +46,7 @@ void main() {
 
   testWidgets('Tapping Lecture Mode navigates to LectureScreen',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+    await pumpPastSplash(tester);
 
     final finder = find.text('Lecture Mode');
     await tester.ensureVisible(finder);
@@ -43,12 +54,16 @@ void main() {
     await tester.tap(finder);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Lecture Mode'), findsOneWidget);
+    // LectureScreen's AppBar shows a unit-selector dropdown (the first
+    // unit's title) rather than a static "Lecture Mode" label, so check
+    // for the flashcard reader's own content instead.
+    expect(find.text('Numbers 1 to 5'), findsOneWidget);
+    expect(find.text('Card 1 of 5'), findsOneWidget);
   });
 
   testWidgets('Tapping Interactive Mode navigates to QnAScreen',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+    await pumpPastSplash(tester);
 
     final finder = find.text('Interactive Mode');
     await tester.ensureVisible(finder);
@@ -72,18 +87,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
   });
 
-  // Both WorksheetScreen entry points (the dashboard card and the vault's
-  // Preview button) are exercised in a single test. WorksheetScreen loads
-  // assets/data/worksheet_content.json via rootBundle on each push; under
-  // flutter_test that load only resolves reliably within the *first*
-  // testWidgets block that touches it in a given file — a second, separate
-  // test block awaiting the same asset key hangs indefinitely. Pushing it
-  // twice from within one test (with a pop in between) works fine, so both
-  // paths are verified here instead of in separate tests.
-  testWidgets(
-      'Worksheet Engine card and Archive / Vault Preview both navigate to '
-      'WorksheetScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+  testWidgets('Worksheet Engine card navigates to WorksheetScreen, and '
+      'Archive / Vault lists the classroom activity log, opening a review '
+      'sheet on tap', (WidgetTester tester) async {
+    await pumpPastSplash(tester);
 
     final finder = find.text('Worksheet Engine');
     await tester.ensureVisible(finder);
@@ -100,19 +107,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Offline Archive & Vault'), findsOneWidget);
-    expect(find.text('Class 3 Addition Practice Sheet'), findsOneWidget);
-    expect(find.text('Lesson 1 Counting Audio Pack'), findsOneWidget);
-    expect(find.text('Recent Walkie-Talkie Session'), findsOneWidget);
+    expect(find.text('Lecture Delivery Registry'), findsOneWidget);
+    expect(find.text('Generated Offline Worksheets'), findsOneWidget);
+    expect(find.text('Interactive Session Activity'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Preview'));
+    // Tapping an entry opens a read-only review sheet — no navigation away.
+    await tester.tap(find.text('Lecture Delivery Registry'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Worksheet Mode'), findsOneWidget);
+    expect(find.text('Curriculum Delivery Status'), findsOneWidget);
+    expect(find.text('Completed (5/5 Cards)'), findsOneWidget);
+    expect(find.text('In Progress (3/5 Cards)'), findsOneWidget);
   });
 
   testWidgets('Switching back to Home shows the dashboard again',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const AnvayaApp());
+    await pumpPastSplash(tester);
 
     await tester.tap(find.text('Archive / Vault'));
     await tester.pumpAndSettle();

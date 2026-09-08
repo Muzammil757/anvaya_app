@@ -24,16 +24,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text('ANVAYA'),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: _AirGappedChip(),
-          ),
-        ],
-      ),
+      appBar: const _DashboardHeader(),
       body: IndexedStack(
         index: _navIndex,
         children: const [
@@ -54,6 +45,78 @@ class _HomeDashboardState extends State<HomeDashboard> {
             label: 'Archive / Vault',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Custom app bar: a brand icon tile pinned left, a centered ANVAYA
+/// title/subtitle block, and the Air-Gapped badge pinned right, all inside
+/// one evenly padded row — built by hand (rather than [AppBar]'s
+/// leading/title/actions slots) so the 20/14 padding applies uniformly and
+/// the icon tile never brushes the screen edge.
+class _DashboardHeader extends StatelessWidget implements PreferredSizeWidget {
+  const _DashboardHeader();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(78);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppTheme.background,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.lavenderContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  color: AppTheme.lavenderAccent,
+                  size: 20,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'ANVAYA',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '• FLN Offline Sync • Ready',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const _AirGappedChip(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -96,8 +159,27 @@ class _AirGappedChip extends StatelessWidget {
 
 /// The primary "Home" destination: greeting, context selector, Action
 /// Centre, and the vertical stack of classroom mode cards.
-class _HomeTab extends StatelessWidget {
+///
+/// Stateful (rather than the stateless tab it used to be) purely so it can
+/// await every push into Lecture Mode and refresh itself on return — that's
+/// what lets the Action Centre's "Current Active Unit" title and "Card X of
+/// 5" subtitle reflect [LectureProgress] immediately, however the teacher
+/// got there (the Action Centre's own Resume button, or the Lecture Mode
+/// card below).
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  Future<void> _openLecture() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LectureScreen()),
+    );
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +195,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 28),
             const _SectionLabel('ACTION CENTRE'),
             const SizedBox(height: 12),
-            const _ActionCentreCard(),
+            _ActionCentreCard(onResume: _openLecture),
             const SizedBox(height: 28),
             const _SectionLabel('CLASSROOM MODES'),
             const SizedBox(height: 12),
@@ -129,11 +211,7 @@ class _HomeTab extends StatelessWidget {
                       icon: Icons.slideshow_rounded,
                       containerColor: AppTheme.mintContainer,
                       accentColor: AppTheme.mintAccent,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LectureScreen(),
-                        ),
-                      ),
+                      onTap: _openLecture,
                     ),
                     const SizedBox(height: 16),
                     _ClassroomModeCard(
@@ -243,7 +321,8 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
-/// Horizontal pill-tag context selector: Class 3 / Mathematics / Santali.
+/// Horizontal pill-tag metadata badges identifying the active curriculum,
+/// class/module, and language pairing.
 class _ContextSelectorBar extends StatelessWidget {
   const _ContextSelectorBar();
 
@@ -254,11 +333,11 @@ class _ContextSelectorBar extends StatelessWidget {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: const [
-          _ContextPill(label: 'Class 3', selected: true),
+          _ContextPill(label: 'NIPUN Bharat FLN', selected: true),
           SizedBox(width: 10),
-          _ContextPill(label: 'Mathematics'),
+          _ContextPill(label: 'Class 3 • Bridge Module'),
           SizedBox(width: 10),
-          _ContextPill(label: 'Santali (Ol Chiki)'),
+          _ContextPill(label: 'English ⇄ Santali (Ol Chiki)'),
         ],
       ),
     );
@@ -316,12 +395,20 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Dark "Action Centre" card surfacing the currently active learning unit.
+/// Dark "Action Centre" card surfacing the currently active Lecture Mode
+/// unit — title and card position both read live from [LectureProgress],
+/// so this reflects wherever the teacher last left off.
 class _ActionCentreCard extends StatelessWidget {
-  const _ActionCentreCard();
+  const _ActionCentreCard({required this.onResume});
+
+  final Future<void> Function() onResume;
 
   @override
   Widget build(BuildContext context) {
+    final unit = LectureProgress.unit;
+    final cardNumber = LectureProgress.cardIndex + 1;
+    final totalCards = unit.cards.length;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -358,21 +445,28 @@ class _ActionCentreCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Addition & Counting',
-            style: TextStyle(
+          Text(
+            unit.titleEnglish,
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Resume Unit • Card $cardNumber of $totalCards',
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70,
             ),
           ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LectureScreen()),
-              ),
+              onPressed: onResume,
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text('Resume Unit'),
             ),
@@ -476,6 +570,11 @@ class _ClassroomModeCard extends StatelessWidget {
 
 /// The "Archive / Vault" destination: pre-cached classroom assets available
 /// without a network connection.
+/// The "Archive / Vault" destination: a true offline classroom activity
+/// log. Each entry summarises what's actually happened on-device (lecture
+/// delivery progress, generated worksheets, interactive session queries)
+/// rather than a static list of cached files — tapping any entry opens a
+/// read-only review bottom sheet; nothing here redirects elsewhere.
 class _ArchiveVaultTab extends StatelessWidget {
   const _ArchiveVaultTab();
 
@@ -496,7 +595,7 @@ class _ArchiveVaultTab extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Pre-cached materials available without a network connection',
+              'A log of classroom activity delivered entirely offline',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppTheme.textSecondary,
                   ),
@@ -508,52 +607,31 @@ class _ArchiveVaultTab extends StatelessWidget {
                 child: Column(
                   children: [
                     _VaultItem(
+                      icon: Icons.fact_check_rounded,
+                      iconColor: AppTheme.mintAccent,
+                      iconBackground: AppTheme.mintContainer,
+                      title: 'Lecture Delivery Registry',
+                      subtitle: '1 of 2 Units Completed • 8 Total Cards Taught',
+                      onTap: () => _showLectureDeliveryLog(context),
+                    ),
+                    const Divider(height: 40),
+                    _VaultItem(
                       icon: Icons.picture_as_pdf_rounded,
                       iconColor: AppTheme.roseAccent,
                       iconBackground: AppTheme.roseContainer,
-                      title: 'Class 3 Addition Practice Sheet',
-                      subtitle: 'PDF • 240 KB',
-                      trailing: OutlinedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const WorksheetScreen(),
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.roseAccent,
-                          side: const BorderSide(color: AppTheme.roseAccent),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: const Text(
-                          'Preview',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      title: 'Generated Offline Worksheets',
+                      subtitle:
+                          '2 Practice Sheets compiled for print/distribution',
+                      onTap: () => _showWorksheetExportLog(context),
                     ),
                     const Divider(height: 40),
                     _VaultItem(
-                      icon: Icons.audiotrack_rounded,
-                      iconColor: AppTheme.mintAccent,
-                      iconBackground: AppTheme.mintContainer,
-                      title: 'Lesson 1 Counting Audio Pack',
-                      subtitle: 'Santali • 4 Clips Cached',
-                    ),
-                    const Divider(height: 40),
-                    _VaultItem(
-                      icon: Icons.forum_rounded,
+                      icon: Icons.record_voice_over_rounded,
                       iconColor: AppTheme.lavenderAccent,
                       iconBackground: AppTheme.lavenderContainer,
-                      title: 'Recent Walkie-Talkie Session',
-                      subtitle: '3 Q&A Pairs Cached',
+                      title: 'Interactive Session Activity',
+                      subtitle: '3 Audio & Translation Queries Logged',
+                      onTap: () => _showInteractiveSessionLog(context),
                     ),
                   ],
                 ),
@@ -566,8 +644,9 @@ class _ArchiveVaultTab extends StatelessWidget {
   }
 }
 
-/// One row inside the Archive / Vault tab: an icon, title/subtitle, and an
-/// optional trailing action.
+/// One tappable row inside the Archive / Vault tab: an icon, title/
+/// subtitle, and a trailing "Review" pill — tapping anywhere on the row
+/// opens the matching review bottom sheet.
 class _VaultItem extends StatelessWidget {
   const _VaultItem({
     required this.icon,
@@ -575,7 +654,7 @@ class _VaultItem extends StatelessWidget {
     required this.iconBackground,
     required this.title,
     required this.subtitle,
-    this.trailing,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -583,29 +662,224 @@ class _VaultItem extends StatelessWidget {
   final Color iconBackground;
   final String title;
   final String subtitle;
-  final Widget? trailing;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.lavenderContainer,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Text(
+                  'Review',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.lavenderAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared chrome for every Vault review sheet: a drag handle, a bold
+/// header, and whatever detail rows the caller supplies.
+Future<void> _showVaultReviewSheet(
+  BuildContext context, {
+  required String header,
+  required List<Widget> children,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppTheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            Text(
+              header,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Item 1: reviews per-unit lecture delivery progress.
+Future<void> _showLectureDeliveryLog(BuildContext context) {
+  return _showVaultReviewSheet(
+    context,
+    header: 'Curriculum Delivery Status',
+    children: const [
+      _DeliveryStatusRow(
+        unitTitle: 'Numbers 1 to 5',
+        status: 'Completed (5/5 Cards)',
+        icon: Icons.check_circle_rounded,
+        color: AppTheme.mintAccent,
+      ),
+      SizedBox(height: 14),
+      _DeliveryStatusRow(
+        unitTitle: 'Our School',
+        status: 'In Progress (3/5 Cards)',
+        icon: Icons.schedule_rounded,
+        color: Color(0xFFB07D0F),
+      ),
+    ],
+  );
+}
+
+/// Item 2: reviews the offline-generated worksheet PDFs.
+Future<void> _showWorksheetExportLog(BuildContext context) {
+  return _showVaultReviewSheet(
+    context,
+    header: 'Generated PDF Sheets',
+    children: const [
+      _WorksheetLogRow(
+        label: 'Class 3 Numbers 1-5 Ol Chiki Tracing Sheet • PDF',
+      ),
+      SizedBox(height: 12),
+      _WorksheetLogRow(
+        label: 'School Objects Bilingual Matching Sheet • PDF',
+      ),
+      SizedBox(height: 16),
+      Text(
+        'Stored in local tablet downloads directory.',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+          fontStyle: FontStyle.italic,
+          color: AppTheme.textSecondary,
+        ),
+      ),
+    ],
+  );
+}
+
+/// Item 3: reviews recent Interactive Mode voice/translation queries.
+Future<void> _showInteractiveSessionLog(BuildContext context) {
+  return _showVaultReviewSheet(
+    context,
+    header: 'Recent Voice & Translation Activity',
+    children: const [
+      _InteractiveLogRow(text: "Query: 'How to say Book?' -> ᱯᱩᱛᱷᱤ (Puthi)"),
+      SizedBox(height: 10),
+      _InteractiveLogRow(
+        text: "Query: 'Teacher in Santali' -> ᱢᱟᱪᱮᱛ (Machet)",
+      ),
+      SizedBox(height: 16),
+      _StatusBadge(label: 'Cached locally • Pending Cluster Sync'),
+    ],
+  );
+}
+
+/// One unit's row in the Lecture Delivery review sheet.
+class _DeliveryStatusRow extends StatelessWidget {
+  const _DeliveryStatusRow({
+    required this.unitTitle,
+    required this.status,
+    required this.icon,
+    required this.color,
+  });
+
+  final String unitTitle;
+  final String status;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: iconBackground,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        const SizedBox(width: 14),
+        Icon(icon, color: color, size: 22),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                unitTitle,
                 style: const TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
@@ -614,21 +888,115 @@ class _VaultItem extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                subtitle,
+                status,
                 style: TextStyle(
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  color: color,
                 ),
               ),
             ],
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: 12),
-          trailing!,
-        ],
       ],
+    );
+  }
+}
+
+/// One PDF entry's row in the Worksheet Export review sheet.
+class _WorksheetLogRow extends StatelessWidget {
+  const _WorksheetLogRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.picture_as_pdf_rounded,
+          color: AppTheme.roseAccent,
+          size: 20,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One query's row in the Interactive Session review sheet.
+class _InteractiveLogRow extends StatelessWidget {
+  const _InteractiveLogRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.chat_bubble_outline_rounded,
+          color: AppTheme.lavenderAccent,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A small pill used to surface a sync/caching status inside a review
+/// sheet.
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppTheme.skyContainer,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 14, color: AppTheme.skyAccent),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.skyAccent,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

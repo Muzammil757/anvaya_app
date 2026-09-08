@@ -1,6 +1,6 @@
 // lecture_screen.dart
 // ANVAYA — Lecture Mode: an expansive, tablet-optimized flashcard lecture
-// experience covering foundational vocabulary in Hindi and Santali
+// experience covering foundational vocabulary in English and Santali
 // (Ol Chiki), with a play/pause/restart slideshow — synchronized to
 // per-card pronunciation audio — that the teacher can drive from a
 // floating control deck.
@@ -28,7 +28,6 @@
 // _onPageChanged and the play/pause/restart handlers below.
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -40,7 +39,7 @@ import '../theme/app_theme.dart';
 /// artwork until image assets are bundled.
 class LectureCard {
   const LectureCard({
-    required this.hindiText,
+    required this.englishText,
     required this.olChikiText,
     required this.phoneticText,
     this.countValue,
@@ -49,7 +48,7 @@ class LectureCard {
     this.audioAssetPath,
   });
 
-  final String hindiText;
+  final String englishText;
   final String olChikiText;
   final String phoneticText;
 
@@ -58,8 +57,7 @@ class LectureCard {
   final int? countValue;
 
   /// When set (and [countValue] is null), the card shows a large colored
-  /// circular avatar containing this icon (used by Classroom Environment
-  /// and Foundational Math).
+  /// circular avatar containing this icon (used by the Our School unit).
   final IconData? icon;
 
   /// Path to an illustrative image for this card. Left null for now — no
@@ -77,56 +75,56 @@ class LectureCard {
 class LectureUnit {
   const LectureUnit({
     required this.id,
-    required this.titleHindi,
+    required this.titleEnglish,
     required this.titleSantali,
     required this.cards,
   });
 
   final String id;
-  final String titleHindi;
+  final String titleEnglish;
   final String titleSantali;
   final List<LectureCard> cards;
 }
 
-/// The three foundational units pre-bundled with the app, chosen to match
-/// exactly the 15 pronunciation clips bundled under assets/audio/. See the
-/// language note at the top of this file regarding verification status.
+/// The two foundational units pre-bundled with the app, chosen to match
+/// exactly 10 of the pronunciation clips bundled under assets/audio/. See
+/// the language note at the top of this file regarding verification status.
 const List<LectureUnit> _lectureUnits = [
   LectureUnit(
     id: 'numbers_1_5',
-    titleHindi: 'संख्या और गिनती (Numbers 1–5)',
+    titleEnglish: 'Numbers 1 to 5',
     titleSantali: 'ᱞᱮᱠᱷᱟ ᱟᱨ ᱨᱮᱠᱷᱟ',
     cards: [
       LectureCard(
-        hindiText: 'एक',
+        englishText: 'One',
         olChikiText: '᱑ (ᱢᱤᱫ)',
         phoneticText: "Mit'",
         countValue: 1,
         audioAssetPath: 'audio/one.wav',
       ),
       LectureCard(
-        hindiText: 'दो',
+        englishText: 'Two',
         olChikiText: '᱒ (ᱵᱟᱨ)',
         phoneticText: 'Bar',
         countValue: 2,
         audioAssetPath: 'audio/two.wav',
       ),
       LectureCard(
-        hindiText: 'तीन',
+        englishText: 'Three',
         olChikiText: '᱓ (ᱯᱮ)',
         phoneticText: 'Pe',
         countValue: 3,
         audioAssetPath: 'audio/three.wav',
       ),
       LectureCard(
-        hindiText: 'चार',
+        englishText: 'Four',
         olChikiText: '᱔ (ᱯᱳᱱ)',
         phoneticText: 'Pon',
         countValue: 4,
         audioAssetPath: 'audio/four.wav',
       ),
       LectureCard(
-        hindiText: 'पांच',
+        englishText: 'Five',
         olChikiText: '᱕ (ᱢᱚᱬᱮ)',
         phoneticText: 'More',
         countValue: 5,
@@ -135,40 +133,40 @@ const List<LectureUnit> _lectureUnits = [
     ],
   ),
   LectureUnit(
-    id: 'classroom_environment',
-    titleHindi: 'कक्षा का परिवेश (Classroom Environment)',
+    id: 'our_school',
+    titleEnglish: 'Our School',
     titleSantali: 'ᱚᱲᱟᱜ ᱨᱮᱭᱟᱜ ᱚᱠᱛᱚ',
     cards: [
       LectureCard(
-        hindiText: 'किताब / पुस्तक',
+        englishText: 'Book',
         olChikiText: 'ᱯᱩᱛᱷᱤ',
         phoneticText: 'Puthi',
         icon: Icons.menu_book_rounded,
         audioAssetPath: 'audio/book.wav',
       ),
       LectureCard(
-        hindiText: 'पेंसिल / कलम',
+        englishText: 'Pencil',
         olChikiText: 'ᱠᱟᱞᱟᱢ',
         phoneticText: 'Kalam',
         icon: Icons.edit_note_rounded,
         audioAssetPath: 'audio/pencil.wav',
       ),
       LectureCard(
-        hindiText: 'छात्र / विद्यार्थी',
+        englishText: 'Student',
         olChikiText: 'ᱯᱟᱹᱴᱷᱩᱣᱟᱹ',
         phoneticText: 'Pathua',
         icon: Icons.face_rounded,
         audioAssetPath: 'audio/student.wav',
       ),
       LectureCard(
-        hindiText: 'शिक्षक / गुरुजी',
+        englishText: 'Teacher',
         olChikiText: 'ᱢᱟᱪᱮᱛ',
         phoneticText: 'Machet',
         icon: Icons.record_voice_over_rounded,
         audioAssetPath: 'audio/teacher.wav',
       ),
       LectureCard(
-        hindiText: 'कक्षा / कमरा',
+        englishText: 'Classroom',
         olChikiText: 'ᱚᱲᱟᱜ',
         phoneticText: "Orak'",
         icon: Icons.meeting_room_rounded,
@@ -178,9 +176,23 @@ const List<LectureUnit> _lectureUnits = [
   ),
 ];
 
+/// Tracks the most recently viewed unit/card index across LectureScreen
+/// sessions so HomeDashboard's Action Centre can show which unit is
+/// active and resume exactly where the teacher left off. Starts at Unit 1
+/// ("Numbers 1 to 5"), Card 1, until the teacher opens Lecture Mode and
+/// navigates elsewhere.
+class LectureProgress {
+  LectureProgress._();
+
+  static int unitIndex = 0;
+  static int cardIndex = 0;
+
+  static LectureUnit get unit => _lectureUnits[unitIndex];
+}
+
 /// Which script is shown large/prominent on each card; the other is shown
 /// smaller underneath. Toggled via the AppBar's script button.
-enum _ScriptFocus { santali, hindi }
+enum _ScriptFocus { santali, english }
 
 class _LectureScreenState extends State<LectureScreen> {
   static const _slideshowInterval = Duration(milliseconds: 3500);
@@ -216,7 +228,11 @@ class _LectureScreenState extends State<LectureScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    // Resume exactly where the teacher last left off (defaults to Unit 1,
+    // Card 1 the very first time Lecture Mode is ever opened).
+    _unitIndex = LectureProgress.unitIndex;
+    _cardIndex = LectureProgress.cardIndex;
+    _pageController = PageController(initialPage: _cardIndex);
   }
 
   @override
@@ -235,14 +251,23 @@ class _LectureScreenState extends State<LectureScreen> {
       _cardIndex = 0;
     });
     _pageController.jumpToPage(0);
+    _saveProgress();
   }
 
   void _toggleScript() {
     setState(() {
       _focus = _focus == _ScriptFocus.santali
-          ? _ScriptFocus.hindi
+          ? _ScriptFocus.english
           : _ScriptFocus.santali;
     });
+  }
+
+  /// Persists the current position into [LectureProgress] so
+  /// HomeDashboard's Action Centre reflects it as soon as the teacher
+  /// returns to the dashboard.
+  void _saveProgress() {
+    LectureProgress.unitIndex = _unitIndex;
+    LectureProgress.cardIndex = _cardIndex;
   }
 
   /// Prev/Next buttons: a deliberate manual override, so it always pauses
@@ -330,6 +355,7 @@ class _LectureScreenState extends State<LectureScreen> {
       _pauseSlideshow();
     }
     setState(() => _cardIndex = index);
+    _saveProgress();
     if (wasProgrammatic && _isPlaying) {
       _playAudioForCard(_currentUnit.cards[index]);
     }
@@ -383,7 +409,7 @@ class _LectureScreenState extends State<LectureScreen> {
                 DropdownMenuItem(
                   value: i,
                   child: Text(
-                    _lectureUnits[i].titleHindi,
+                    _lectureUnits[i].titleEnglish,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -396,7 +422,7 @@ class _LectureScreenState extends State<LectureScreen> {
         actions: [
           IconButton(
             tooltip: _focus == _ScriptFocus.santali
-                ? 'Switch focus to Hindi'
+                ? 'Switch focus to English'
                 : 'Switch focus to Santali (Ol Chiki)',
             icon: Icon(
               _focus == _ScriptFocus.santali
@@ -427,12 +453,12 @@ class _LectureScreenState extends State<LectureScreen> {
 
   Widget _buildCard(LectureCard card) {
     final isSantaliFocus = _focus == _ScriptFocus.santali;
-    final bigText = isSantaliFocus ? card.olChikiText : card.hindiText;
-    final smallText = isSantaliFocus ? card.hindiText : card.olChikiText;
-    final bigFontFamily =
-        isSantaliFocus ? 'NotoSansOlChiki' : 'NotoSansDevanagari';
-    final smallFontFamily =
-        isSantaliFocus ? 'NotoSansDevanagari' : 'NotoSansOlChiki';
+    final bigText = isSantaliFocus ? card.olChikiText : card.englishText;
+    final smallText = isSantaliFocus ? card.englishText : card.olChikiText;
+    // English renders fine in the default font — only the Ol Chiki side
+    // needs the dedicated font family, whichever role it's playing.
+    final bigFontFamily = isSantaliFocus ? 'NotoSansOlChiki' : null;
+    final smallFontFamily = isSantaliFocus ? null : 'NotoSansOlChiki';
     final (containerColor, accentColor) = _unitColors;
 
     return LayoutBuilder(
@@ -513,20 +539,13 @@ class _LectureScreenState extends State<LectureScreen> {
         color: _canvasColor,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Center(
-          child: _buildVisual(card, container, accent, constraints),
-        ),
+      child: Center(
+        child: _buildVisual(card, container, accent),
       ),
     );
   }
 
-  Widget _buildVisual(
-    LectureCard card,
-    Color container,
-    Color accent,
-    BoxConstraints constraints,
-  ) {
+  Widget _buildVisual(LectureCard card, Color container, Color accent) {
     if (card.imageAssetPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -534,15 +553,29 @@ class _LectureScreenState extends State<LectureScreen> {
           card.imageAssetPath!,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => card.countValue != null
-              ? _buildCountingGrid(card.countValue!, constraints)
+              ? _buildDigitDisplay(card.countValue!)
               : _buildIconAvatar(card.icon ?? Icons.image_rounded, container, accent),
         ),
       );
     }
     if (card.countValue != null) {
-      return _buildCountingGrid(card.countValue!, constraints);
+      return _buildDigitDisplay(card.countValue!);
     }
     return _buildIconAvatar(card.icon ?? Icons.image_rounded, container, accent);
+  }
+
+  /// A clean, standalone digit for the Numbers unit — no bubbles, badges,
+  /// or rings, just a bold digit standing prominent on the white stage.
+  Widget _buildDigitDisplay(int value) {
+    return Text(
+      '$value',
+      style: const TextStyle(
+        fontSize: 130,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.textPrimary,
+        height: 1,
+      ),
+    );
   }
 
   /// A large (180-200dp), high-contrast colored circular avatar with soft
@@ -586,43 +619,6 @@ class _LectureScreenState extends State<LectureScreen> {
     );
   }
 
-  /// A large (70-90dp), vibrant, "bubbly" (glossy radial-gradient
-  /// highlight) grid of counters — e.g. 1 circle for count 1, a 2x2 grid
-  /// for count 4 — filling the upper canvas, so students can visually
-  /// count along instead of just reading the digit.
-  Widget _buildCountingGrid(int count, BoxConstraints constraints) {
-    const spacing = 16.0;
-    final columns = math.sqrt(count).ceil();
-    final rows = (count / columns).ceil();
-
-    final availableWidth = constraints.maxWidth - (columns - 1) * spacing;
-    final availableHeight = constraints.maxHeight - (rows - 1) * spacing;
-    final chipSize = math
-        .min(availableWidth / columns, availableHeight / rows)
-        .clamp(70.0, 90.0);
-
-    const colors = [
-      AppTheme.mintAccent,
-      AppTheme.roseAccent,
-      AppTheme.skyAccent,
-      AppTheme.lavenderAccent,
-    ];
-
-    return SizedBox(
-      width: columns * chipSize + (columns - 1) * spacing,
-      height: rows * chipSize + (rows - 1) * spacing,
-      child: GridView.count(
-        crossAxisCount: columns,
-        mainAxisSpacing: spacing,
-        crossAxisSpacing: spacing,
-        physics: const NeverScrollableScrollPhysics(),
-        children: List.generate(count, (i) {
-          return _CountingChip(color: colors[i % colors.length], size: chipSize);
-        }),
-      ),
-    );
-  }
-
   /// Lower stage: the Santali/Hindi script pairing (whichever is currently
   /// focused shown large as the hero, the other smaller beneath) and the
   /// tappable phonetics pill. Wrapped in a scroll view as a safety net —
@@ -633,8 +629,8 @@ class _LectureScreenState extends State<LectureScreen> {
     required LectureCard card,
     required String bigText,
     required String smallText,
-    required String bigFontFamily,
-    required String smallFontFamily,
+    required String? bigFontFamily,
+    required String? smallFontFamily,
     required Color containerColor,
     required Color accentColor,
   }) {
@@ -808,40 +804,4 @@ class LectureScreen extends StatefulWidget {
 
   @override
   State<LectureScreen> createState() => _LectureScreenState();
-}
-
-/// One counter in the counting grid — a glossy, "bubbly" pastel chip (a
-/// radial highlight over the base color) with a tap ripple, giving the
-/// grid a tactile, interactive feel even though it doesn't track any
-/// counting state of its own.
-class _CountingChip extends StatelessWidget {
-  const _CountingChip({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      shape: const CircleBorder(),
-      elevation: 3,
-      shadowColor: color.withValues(alpha: 0.6),
-      child: Ink(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            center: const Alignment(-0.3, -0.3),
-            radius: 1.1,
-            colors: [Colors.white.withValues(alpha: 0.6), color],
-          ),
-        ),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {},
-        ),
-      ),
-    );
-  }
 }
