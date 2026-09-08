@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ANVAYA uses the microphone for the Live Q&amp;A Walkie-Talkie mode, so you can speak a Hindi question or answer for translation.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>ANVAYA uses on-device speech recognition to transcribe your Hindi speech in the Live Q&amp;A Walkie-Talkie mode.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

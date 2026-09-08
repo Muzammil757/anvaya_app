@@ -28,6 +28,13 @@ dependencies:
   # Worksheet mode — used by worksheet_screen.dart for PDF preview, printing, and sharing.
   printing: ^5.13.0
 
+  # AI curriculum service — used to call the Gemini API for live QnA
+  # translation and dynamic worksheet generation.
+  http: ^1.2.2
+
+  # QnA / Walkie-Talkie mode — live Hindi speech recognition for the mic button.
+  speech_to_text: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

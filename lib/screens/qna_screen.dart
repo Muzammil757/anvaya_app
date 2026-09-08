@@ -9,7 +9,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:anvaya_app/theme/app_theme.dart';
+import 'package:anvaya_app/services/ai_curriculum_service.dart';
 
 enum QnAState { idle, recording, processing, response }
 
@@ -25,11 +27,11 @@ class _QnAScreenState extends State<QnAScreen>
   QnAState _state = QnAState.idle;
   late AnimationController _pulseController;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final SpeechToText _speech = SpeechToText();
+  bool _speechEnabled = false;
   final List<Map<String, dynamic>> _conversationHistory = [];
   List<Map<String, dynamic>> _scenarios = [];
-  int _scenarioCursor = 0;
   double _lastLatency = 0.0;
-  Timer? _processingTimer;
 
   @override
   void initState() {
@@ -39,6 +41,33 @@ class _QnAScreenState extends State<QnAScreen>
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
     _loadScenarios();
+    _initSpeech();
+  }
+
+  /// Initializes the on-device speech recognizer used for live Hindi input
+  /// on the mic button. If unavailable (no permission, unsupported device,
+  /// simulator, etc.) the mic falls back to opening the typed-input dialog.
+  Future<void> _initSpeech() async {
+    bool available = false;
+    try {
+      available = await _speech.initialize(
+        onStatus: (status) {
+          debugPrint('QnAScreen: speech status: $status');
+          // The recognizer stopped (e.g. silence, or the user released the
+          // mic) without ever producing a final result — don't leave the
+          // mic stuck showing "recording".
+          if ((status == 'notListening' || status == 'done') &&
+              _state == QnAState.recording &&
+              mounted) {
+            setState(() => _state = QnAState.idle);
+          }
+        },
+        onError: (error) => debugPrint('QnAScreen: speech error: $error'),
+      );
+    } catch (e) {
+      debugPrint('QnAScreen: speech initialize failed: $e');
+    }
+    if (mounted) setState(() => _speechEnabled = available);
   }
 
   Future<void> _loadScenarios() async {
@@ -75,38 +104,135 @@ class _QnAScreenState extends State<QnAScreen>
   void dispose() {
     _pulseController.dispose();
     _audioPlayer.dispose();
-    _processingTimer?.cancel();
+    _speech.stop();
     super.dispose();
   }
 
+  /// Push-to-talk: starts live Hindi speech recognition. Falls back to the
+  /// typed-input dialog if the recognizer isn't available on this device.
   void _onPressStart() {
-    if (_state != QnAState.idle || _scenarios.isEmpty) return;
+    if (_state != QnAState.idle) return;
+    if (!_speechEnabled) {
+      _showTypedFallbackDialog();
+      return;
+    }
     setState(() => _state = QnAState.recording);
+    _speech.listen(
+      onResult: (result) {
+        if (result.finalResult) {
+          _handleRecognizedSpeech(result.recognizedWords);
+        }
+      },
+      listenOptions: SpeechListenOptions(localeId: 'hi_IN'),
+    );
   }
 
   void _onPressEnd() {
     if (_state != QnAState.recording) return;
-    setState(() => _state = QnAState.processing);
+    _speech.stop();
+  }
 
-    final scenario = _scenarios[_scenarioCursor % _scenarios.length];
-    _scenarioCursor++;
+  Future<void> _handleRecognizedSpeech(String spokenText) async {
+    final trimmed = spokenText.trim();
+    if (trimmed.isEmpty) {
+      if (mounted) setState(() => _state = QnAState.idle);
+      return;
+    }
+    await _submitHindiText(trimmed);
+  }
 
-    final latency =
-        (scenario['simulated_latency_seconds'] as num?)?.toDouble() ?? 1.8;
-
-    // Simulated on-device processing delay. Real build would await the
-    // ASR -> MT -> TTS pipeline here instead of a fixed Timer.
-    _processingTimer = Timer(
-      Duration(milliseconds: (latency * 1000).round()),
-      () => _showResponse(scenario, latency),
+  /// Quick text-input fallback for loud venues or when speech recognition
+  /// isn't available — types a Hindi sentence and runs it through the same
+  /// live translation pipeline as the mic.
+  Future<void> _showTypedFallbackDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Type a Hindi sentence'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'e.g. पाँच और तीन जोड़ने पर कितना होता है?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
     );
+    controller.dispose();
+    final text = result?.trim();
+    if (text != null && text.isNotEmpty) {
+      await _submitHindiText(text);
+    }
+  }
+
+  /// Live pipeline shared by the mic and the typed fallback: immediately
+  /// shows the Hindi input as a Teacher card, then calls Gemini for a
+  /// Hindi -> Santali translation and shows the result as a Student card.
+  Future<void> _submitHindiText(String hindiText) async {
+    setState(() {
+      _state = QnAState.processing;
+      _conversationHistory.insert(0, {
+        'type': 'teacher_prompt',
+        'input_text': hindiText,
+        'processing_pipeline': 'Live speech input (hi_IN)',
+      });
+    });
+
+    final stopwatch = Stopwatch()..start();
+    final result = await AiCurriculumService.translateDialogue(
+      text: hindiText,
+      fromLang: 'Hindi',
+      toLang: 'Santali',
+    );
+    stopwatch.stop();
+
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() => _state = QnAState.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'AI translation failed — check your connection or API key.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _state = QnAState.response;
+      _lastLatency = stopwatch.elapsedMilliseconds / 1000;
+      _conversationHistory.insert(0, {
+        'type': 'student_query',
+        'input_text': result['translated_text'] ?? '',
+        'input_transliteration': result['transliteration'] ?? '',
+        'processing_pipeline': 'Gemini 2.5 Flash — Hindi → Santali (Ol Chiki)',
+      });
+    });
+
+    // Return to idle after a beat so the mic is ready for the next turn.
+    Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _state = QnAState.idle);
+    });
   }
 
   /// One-tap scenario selector: skips the simulated mic/processing delay and
   /// immediately surfaces the picked scenario's transcript + audio, for fast
   /// manual demoing alongside the push-to-talk flow.
   void _onScenarioChipTap(Map<String, dynamic> scenario) {
-    _processingTimer?.cancel();
     final latency =
         (scenario['simulated_latency_seconds'] as num?)?.toDouble() ?? 1.8;
     _showResponse(scenario, latency);
@@ -149,6 +275,13 @@ class _QnAScreenState extends State<QnAScreen>
         title: const Text('Live Q&A — Walkie-Talkie'),
         backgroundColor: AppTheme.lavenderAccent,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.keyboard_alt_outlined),
+            tooltip: 'Type a Hindi sentence instead',
+            onPressed: () => _showTypedFallbackDialog(),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -324,22 +457,24 @@ class _QnAScreenState extends State<QnAScreen>
                 style: const TextStyle(fontSize: 14, color: Colors.black54),
               ),
             ),
-          const Divider(height: 20),
-          Row(
-            children: [
-              const Icon(Icons.volume_up, size: 16, color: Color(0xFFB8860B)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  outputText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+          if (outputText.toString().isNotEmpty) ...[
+            const Divider(height: 20),
+            Row(
+              children: [
+                const Icon(Icons.volume_up, size: 16, color: Color(0xFFB8860B)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    outputText,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           if (pipeline.toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -367,7 +502,7 @@ class _QnAScreenState extends State<QnAScreen>
         label = 'Listening...';
         break;
       case QnAState.processing:
-        label = 'Processing on-device...';
+        label = 'Translating with Gemini...';
         break;
       case QnAState.response:
         label = 'Response ready';

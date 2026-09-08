@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Live QnA Walkie-Talkie: on-device Hindi speech recognition. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- AI curriculum service: calls the Gemini API over HTTPS. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="anvaya_app"
         android:name="${applicationName}"

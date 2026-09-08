@@ -34,6 +34,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../theme/app_theme.dart';
+import '../services/ai_curriculum_service.dart';
 
 /// Simple data model for a single worksheet question.
 class WorksheetQuestion {
@@ -53,11 +54,14 @@ class WorksheetQuestion {
 
   factory WorksheetQuestion.fromJson(Map<String, dynamic> json) {
     return WorksheetQuestion(
-      questionNumber: json['question_number'] as int,
-      questionHindi: json['question_hindi'] as String,
-      questionSantali: json['question_santali'] as String,
+      // Parsed slightly leniently (num.toInt(), null-coalesced strings) since
+      // this also feeds AI-generated content, which is less predictably
+      // typed than our own static worksheet_content.json.
+      questionNumber: (json['question_number'] as num?)?.toInt() ?? 0,
+      questionHindi: json['question_hindi'] as String? ?? '',
+      questionSantali: json['question_santali'] as String? ?? '',
       santaliVerified: (json['santali_verified'] as bool?) ?? false,
-      visualHint: json['visual_hint'] as String,
+      visualHint: json['visual_hint'] as String? ?? '',
     );
   }
 }
@@ -266,6 +270,51 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
     }
   }
 
+  /// Opens the "AI Generate" bottom sheet, then applies whatever worksheet
+  /// it returns to this screen's state — which the existing question cards,
+  /// export button, and `_buildPdfBytes` all already read from, so the PDF
+  /// export automatically picks up the newly-generated questions too.
+  Future<void> _openAiGenerateSheet() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _AiGenerateSheet(
+        onGenerate: (topic) =>
+            AiCurriculumService.generateWorksheet(topic: topic),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    _applyGeneratedWorksheet(result);
+  }
+
+  void _applyGeneratedWorksheet(Map<String, dynamic> data) {
+    try {
+      final rawQuestions = data['questions'] as List<dynamic>? ?? [];
+      setState(() {
+        _worksheetTitle =
+            data['worksheet_title'] as String? ?? _worksheetTitle;
+        _classLevel = data['class_level'] as String? ?? _classLevel;
+        _subject = data['subject'] as String? ?? _subject;
+        _lesson = data['lesson'] as String? ?? _lesson;
+        _questions = rawQuestions
+            .map((q) => WorksheetQuestion.fromJson(q as Map<String, dynamic>))
+            .toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI-generated worksheet loaded.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not apply AI worksheet: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -283,6 +332,14 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
           color: AppTheme.roseAccent,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: _openAiGenerateSheet,
+            icon: const Text('✨', style: TextStyle(fontSize: 16)),
+            label: const Text('AI Generate'),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.roseAccent),
+          ),
+        ],
       ),
       body: SafeArea(child: _buildBody()),
     );
@@ -507,6 +564,177 @@ class _WorksheetPdfPreviewScreen extends StatelessWidget {
         canChangeOrientation: false,
         canChangePageFormat: false,
         pdfFileName: fileName,
+      ),
+    );
+  }
+}
+
+/// Bottom sheet content for "✨ AI Generate": quick topic pills, a custom
+/// topic field, and a Generate button that calls
+/// [AiCurriculumService.generateWorksheet] (injected via [onGenerate] so this
+/// widget stays easy to test/reuse). Pops with the generated worksheet map
+/// on success; stays open with an inline error on failure so the user can
+/// retry without losing their typed topic.
+class _AiGenerateSheet extends StatefulWidget {
+  const _AiGenerateSheet({required this.onGenerate});
+
+  final Future<Map<String, dynamic>?> Function(String topic) onGenerate;
+
+  @override
+  State<_AiGenerateSheet> createState() => _AiGenerateSheetState();
+}
+
+class _AiGenerateSheetState extends State<_AiGenerateSheet> {
+  static const _quickTopics = [
+    'Addition up to 20',
+    'Subtraction up to 20',
+    'Counting 1-10',
+    'Shapes & Patterns',
+  ];
+
+  final _topicController = TextEditingController();
+  bool _isGenerating = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _topicController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generate() async {
+    final topic = _topicController.text.trim();
+    if (topic.isEmpty) {
+      setState(() => _errorMessage = 'Enter or pick a topic first.');
+      return;
+    }
+    setState(() {
+      _isGenerating = true;
+      _errorMessage = null;
+    });
+
+    final result = await widget.onGenerate(topic);
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() {
+        _isGenerating = false;
+        _errorMessage =
+            'AI generation failed — check your connection or API key.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+          ),
+          Text(
+            '✨ AI Generate Worksheet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pick a quick topic or type your own, then generate 4 bilingual '
+            'FLN questions with Gemini.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final topic in _quickTopics)
+                ActionChip(
+                  label: Text(topic),
+                  backgroundColor: AppTheme.roseContainer,
+                  labelStyle: const TextStyle(
+                    color: AppTheme.roseAccent,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    side: BorderSide.none,
+                  ),
+                  onPressed: _isGenerating
+                      ? null
+                      : () => setState(() => _topicController.text = topic),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _topicController,
+            enabled: !_isGenerating,
+            decoration: InputDecoration(
+              labelText: 'Topic',
+              hintText: 'e.g. Multiplication tables 2-5',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _isGenerating ? null : _generate,
+              icon: _isGenerating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('✨', style: TextStyle(fontSize: 16)),
+              label: Text(_isGenerating ? 'Generating...' : 'Generate'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.roseAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
