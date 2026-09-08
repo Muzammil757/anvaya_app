@@ -23,7 +23,7 @@ void main() {
     expect(find.text('Resume Unit'), findsOneWidget);
 
     expect(find.text('Lecture Mode'), findsOneWidget);
-    expect(find.text('Walkie-Talkie'), findsOneWidget);
+    expect(find.text('Interactive Mode'), findsOneWidget);
     expect(find.text('Worksheet Engine'), findsOneWidget);
 
     expect(find.byIcon(Icons.menu_rounded), findsNothing);
@@ -46,11 +46,11 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Lecture Mode'), findsOneWidget);
   });
 
-  testWidgets('Tapping Walkie-Talkie navigates to QnAScreen',
+  testWidgets('Tapping Interactive Mode navigates to QnAScreen',
       (WidgetTester tester) async {
     await tester.pumpWidget(const AnvayaApp());
 
-    final finder = find.text('Walkie-Talkie');
+    final finder = find.text('Interactive Mode');
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
     await tester.tap(finder);
@@ -61,7 +61,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(
-      find.widgetWithText(AppBar, 'Live Q&A — Walkie-Talkie'),
+      find.widgetWithText(AppBar, 'Interactive Mode'),
       findsOneWidget,
     );
 

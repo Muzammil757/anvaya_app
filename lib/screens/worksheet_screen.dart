@@ -36,6 +36,13 @@ import 'package:printing/printing.dart';
 import '../theme/app_theme.dart';
 import '../services/ai_curriculum_service.dart';
 
+/// Reserved key the "AI Generate" sheet pops instead of a worksheet map when
+/// generation fails, so [_WorksheetScreenState._openAiGenerateSheet] can
+/// tell that apart from the user simply dismissing the sheet (which returns
+/// a plain null) and fall back to the offline cached worksheet instead of
+/// showing a blocking error.
+const _aiFailedSentinel = '__ai_failed__';
+
 /// Simple data model for a single worksheet question.
 class WorksheetQuestion {
   final int questionNumber;
@@ -54,15 +61,29 @@ class WorksheetQuestion {
 
   factory WorksheetQuestion.fromJson(Map<String, dynamic> json) {
     return WorksheetQuestion(
-      // Parsed slightly leniently (num.toInt(), null-coalesced strings) since
-      // this also feeds AI-generated content, which is less predictably
-      // typed than our own static worksheet_content.json.
-      questionNumber: (json['question_number'] as num?)?.toInt() ?? 0,
+      // Parsed leniently since this also feeds AI-generated content, which
+      // is less predictably typed than our own static worksheet_content.json
+      // — question_number/santali_verified may come back as a String or a
+      // number rather than the expected int/bool.
+      questionNumber: _asInt(json['question_number']),
       questionHindi: json['question_hindi'] as String? ?? '',
       questionSantali: json['question_santali'] as String? ?? '',
-      santaliVerified: (json['santali_verified'] as bool?) ?? false,
+      santaliVerified: _asBool(json['santali_verified']),
       visualHint: json['visual_hint'] as String? ?? '',
     );
+  }
+
+  static int _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim()) ?? 0;
+    return 0;
+  }
+
+  static bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.trim().toLowerCase() == 'true';
+    if (value is num) return value != 0;
+    return false;
   }
 }
 
@@ -289,6 +310,21 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
     );
 
     if (result == null || !mounted) return;
+
+    if (result[_aiFailedSentinel] == true) {
+      // AI generation failed (network/timeout/malformed response, etc.) —
+      // rather than a blocking red failure, fall back to the pre-cached
+      // offline unit so the teacher always has something usable.
+      await _loadWorksheetContent();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Loaded offline unit from vault'),
+        ),
+      );
+      return;
+    }
+
     _applyGeneratedWorksheet(result);
   }
 
@@ -617,11 +653,14 @@ class _AiGenerateSheetState extends State<_AiGenerateSheet> {
     if (!mounted) return;
 
     if (result == null) {
-      setState(() {
-        _isGenerating = false;
-        _errorMessage =
-            'AI generation failed — check your connection or API key.';
-      });
+      // Don't block here with a red failure message — close the sheet with
+      // the failure sentinel and let the caller gracefully fall back to the
+      // offline cached worksheet instead.
+      debugPrint(
+        'WorksheetScreen: AI generation failed: '
+        '${AiCurriculumService.lastError ?? 'Unknown error'}',
+      );
+      Navigator.of(context).pop({_aiFailedSentinel: true});
       return;
     }
     Navigator.of(context).pop(result);

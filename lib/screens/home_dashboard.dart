@@ -137,8 +137,8 @@ class _HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     _ClassroomModeCard(
-                      title: 'Walkie-Talkie',
-                      subtitle: 'Live Two-Way Q&A (<2.5s Latency)',
+                      title: 'Interactive Mode',
+                      subtitle: 'Deliver & log daily tasks in Santali',
                       icon: Icons.record_voice_over_rounded,
                       containerColor: AppTheme.lavenderContainer,
                       accentColor: AppTheme.lavenderAccent,
