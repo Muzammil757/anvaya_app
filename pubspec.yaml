@@ -1,0 +1,70 @@
+name: anvaya_app
+description: "ANVAYA — AI-powered offline-first vernacular learning app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  path_provider: ^2.1.3
+  pdf: ^3.10.8
+  printing: ^5.13.0
+  http: ^1.2.2
+  speech_to_text: ^7.0.0
+  shared_preferences: ^2.3.2
+  audioplayers: ^6.0.0
+  sqflite_common_ffi: ^2.4.3
+
+  vosk_flutter: any
+  permission_handler: ^10.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/data/
+    - assets/audio/
+    - assets/images/
+    - assets/audio/instructions/
+    - assets/models/vosk-model-small-en-us-0.15.zip
+
+  fonts:
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari-Regular.ttf
+
+    - family: NotoSansOlChiki
+      fonts:
+        - asset: assets/fonts/NotoSansOlChiki-Regular.ttf
+
+dependency_overrides:
+  http: ^1.2.2
+  permission_handler: ^11.3.1
+
+# Regenerates the Android launcher icon (all mipmap densities + the
+# adaptive-icon layers) from the real ANVAYA brand mark, replacing the
+# stock Flutter template icon — which Android 12+ also uses automatically
+# as the app's system splash-screen icon, so this is what was actually
+# flashing before the app's own UI painted. Run:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#F7F9FC"
+  adaptive_icon_foreground: "assets/images/logo.png"
+  min_sdk_android: 21
