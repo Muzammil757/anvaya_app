@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/archive_log_service.dart';
 import '../theme/app_theme.dart';
-import 'lecture_screen.dart';
+import '../widgets/curriculum_progress_card.dart';
+import 'lecture_mode_screen.dart';
 import 'qna_screen.dart';
-import 'unit_selection_screen.dart';
 import 'worksheet_screen.dart';
 
 /// The landing screen for the ANVAYA platform.
@@ -198,11 +198,7 @@ class _AirGappedChip extends StatelessWidget {
 /// Centre, and the vertical stack of classroom mode cards.
 ///
 /// Stateful (rather than the stateless tab it used to be) purely so it can
-/// await every push into Lecture Mode and refresh itself on return — that's
-/// what lets the Action Centre's "Current Active Unit" title and "Card X of
-/// 5" subtitle reflect [LectureProgress] immediately, however the teacher
-/// got there (the Action Centre's own Resume button, or the Lecture Mode
-/// card below).
+/// await every push into Lecture Mode and refresh itself on return.
 class _HomeTab extends StatefulWidget {
   const _HomeTab();
 
@@ -211,21 +207,15 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  /// Action Centre's "Resume Unit" button — jumps straight back into
-  /// LectureScreen at exactly the unit/card [LectureProgress] last held,
-  /// bypassing the unit picker.
-  Future<void> _resumeLecture() async {
+  /// Shared destination for both the Action Centre's "Resume Unit" button
+  /// and the "Lecture Mode" classroom card below — both now open the same
+  /// subject-segregated LectureModeScreen (Math / Language tabs). The old
+  /// per-unit LectureScreen/LectureProgress "resume exactly where I left
+  /// off" flow has been retired; LectureModeScreen always opens fresh on
+  /// its Math tab.
+  Future<void> _openLectureMode() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LectureScreen()),
-    );
-    if (mounted) setState(() {});
-  }
-
-  /// "Lecture Mode" classroom card — opens the unit picker fresh, rather
-  /// than resuming wherever the teacher last left off.
-  Future<void> _openUnitSelection() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const UnitSelectionScreen()),
+      MaterialPageRoute(builder: (_) => const LectureModeScreen()),
     );
     if (mounted) setState(() {});
   }
@@ -239,10 +229,12 @@ class _HomeTabState extends State<_HomeTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _WelcomeCard(),
-            const SizedBox(height: 28),
+            const SizedBox(height: 16),
+            const CurriculumProgressCard(),
+            const SizedBox(height: 24),
             const _SectionLabel('ACTION CENTRE'),
-            const SizedBox(height: 12),
-            _ActionCentreCard(onResume: _resumeLecture),
+            const SizedBox(height: 10),
+            _ActionCentreCard(onResume: _openLectureMode),
             const SizedBox(height: 28),
             const _SectionLabel('CLASSROOM MODES'),
             const SizedBox(height: 12),
@@ -258,7 +250,7 @@ class _HomeTabState extends State<_HomeTab> {
                       icon: Icons.slideshow_rounded,
                       containerColor: AppTheme.mintContainer,
                       accentColor: AppTheme.mintAccent,
-                      onTap: _openUnitSelection,
+                      onTap: _openLectureMode,
                     ),
                     const SizedBox(height: 16),
                     _ClassroomModeCard(
@@ -389,9 +381,8 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Dark "Action Centre" card surfacing the currently active Lecture Mode
-/// unit — title and card position both read live from [LectureProgress],
-/// so this reflects wherever the teacher last left off.
+/// Dark "Action Centre" card — a quick-launch entry point into Lecture
+/// Mode's subject-segregated LectureModeScreen (Math / Language tabs).
 class _ActionCentreCard extends StatelessWidget {
   const _ActionCentreCard({required this.onResume});
 
@@ -399,13 +390,12 @@ class _ActionCentreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unit = LectureProgress.unit;
-    final cardNumber = LectureProgress.cardIndex + 1;
-    final totalCards = LectureProgress.totalCards;
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      // Trimmed from all(20)/14/6/18 spacing so this card sits comfortably
+      // above the Classroom Modes stack without pushing it into extra
+      // scrolling on a standard tablet viewport.
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: AppTheme.actionCentreDark,
         borderRadius: BorderRadius.circular(20),
@@ -429,40 +419,43 @@ class _ActionCentreCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           const Text(
-            'Current Active Unit',
+            'Current Focus',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            unit.titleEnglish,
-            style: const TextStyle(
-              fontSize: 20,
+          const SizedBox(height: 3),
+          const Text(
+            'Math & Language',
+            style: TextStyle(
+              fontSize: 19,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Resume Unit • Card $cardNumber of $totalCards',
-            style: const TextStyle(
+          const SizedBox(height: 4),
+          const Text(
+            'Bilingual Lecture Mode • Chant & Q&A Practice',
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
               color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: onResume,
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text('Resume Unit'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+              ),
             ),
           ),
         ],
@@ -836,39 +829,58 @@ Future<void> _showVaultReviewSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    // isScrollControlled + an explicit max-height let this sheet grow with
+    // its content up to a cap, rather than being squeezed into the
+    // default ~half-screen allowance a non-scroll-controlled sheet gets —
+    // that mismatch (unbounded Column vs. a shorter-than-content sheet)
+    // was the actual cause of the previous bottom overflow.
+    isScrollControlled: true,
     backgroundColor: AppTheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (context) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 18),
-                decoration: BoxDecoration(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
-            ),
-            Text(
-              header,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+              Text(
+                header,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
+              const SizedBox(height: 16),
+              // The drag handle + header above stay fixed; only the
+              // (potentially long) item list scrolls, capped by the
+              // ConstrainedBox above instead of overflowing past it.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),

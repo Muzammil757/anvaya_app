@@ -30,8 +30,10 @@
 //    right column, shuffled once) and "Trace & Write" (one outlined
 //    tracing word + two blank practice lines per word) — plus Print /
 //    Export to PDF.
-//  - _TopicWorksheetScreen: Preview/View for a standard topic sheet — a
+//  - TopicWorksheetScreen: Preview/View for a standard topic sheet — a
 //    numbered list of fill-in-the-blank prompts — plus Print / Export.
+//    Public (not underscore-prefixed) because lecture_assessments_list_
+//    screen.dart reuses it directly for its own generated prompt lists.
 //  - _WorksheetPdfPreviewScreen: a thin wrapper around `printing`'s
 //    PdfPreview widget, which already provides Print + Share actions.
 //
@@ -53,6 +55,7 @@ import 'package:printing/printing.dart';
 import '../theme/app_theme.dart';
 import '../services/archive_log_service.dart';
 import '../services/database_service.dart';
+import 'lecture_assessments_list_screen.dart';
 
 // =============================================================================
 // Shared helpers & small data models
@@ -386,7 +389,7 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
     );
     if (!mounted) return;
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _TopicWorksheetScreen(title: template.title, prompts: prompts)),
+      MaterialPageRoute(builder: (_) => TopicWorksheetScreen(title: template.title, prompts: prompts)),
     );
   }
 
@@ -397,7 +400,7 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
       );
     } else {
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => _TopicWorksheetScreen(title: w.title, prompts: w.prompts)),
+        MaterialPageRoute(builder: (_) => TopicWorksheetScreen(title: w.title, prompts: w.prompts)),
       );
     }
   }
@@ -436,6 +439,8 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
             children: [
               _buildDashboardTitle(),
               const SizedBox(height: 20),
+              _buildLectureModeAssessmentsSection(),
+              const SizedBox(height: 26),
               _buildSectionHeading('Needs Practice — By Unit'),
               const SizedBox(height: 10),
               _buildUnitSection(),
@@ -471,6 +476,60 @@ class _WorksheetScreenState extends State<WorksheetScreen> {
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
         ),
       ],
+    );
+  }
+
+  /// "Lecture Mode Assessments" — a single compact, tappable card that
+  /// drills down into LectureAssessmentsListScreen, rather than expanding
+  /// its own tile list inline here. "Our School: Needs Practice" is
+  /// intentionally not represented anywhere in this flow — the "Needs
+  /// Practice — By Unit" section below already covers that for real,
+  /// straight from SQLite.
+  Widget _buildLectureModeAssessmentsSection() {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LectureAssessmentsListScreen()),
+        ),
+        child: Padding(
+          // Generous padding keeps the whole row a large, comfortable
+          // tablet touch target.
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.lavenderContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.menu_book_rounded, color: AppTheme.lavenderAccent),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lecture Mode Assessments',
+                      style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Week-based PDF worksheets from Lecture Mode',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1255,23 +1314,25 @@ class _UnitWorksheetScreenState extends State<_UnitWorksheetScreen> {
 }
 
 // =============================================================================
-// _TopicWorksheetScreen — standard topic sheet Preview/View + Print/Export
+// TopicWorksheetScreen — standard topic sheet Preview/View + Print/Export
 // =============================================================================
 
-/// A simple numbered list of fill-in-the-blank prompts for a standard
-/// offline topic (Addition, Subtraction, Shapes & Patterns). No Hindi/Ol
-/// Chiki content, so its PDF skips font embedding entirely.
-class _TopicWorksheetScreen extends StatefulWidget {
-  const _TopicWorksheetScreen({required this.title, required this.prompts});
+/// A simple numbered list of fill-in-the-blank prompts — used both for a
+/// standard offline topic (Addition, Subtraction, Shapes & Patterns) and,
+/// from lecture_assessments_list_screen.dart, for Lecture Mode's
+/// generated weekly assessment subsets. No Hindi/Ol Chiki content in
+/// either case, so its PDF skips font embedding entirely.
+class TopicWorksheetScreen extends StatefulWidget {
+  const TopicWorksheetScreen({super.key, required this.title, required this.prompts});
 
   final String title;
   final List<String> prompts;
 
   @override
-  State<_TopicWorksheetScreen> createState() => _TopicWorksheetScreenState();
+  State<TopicWorksheetScreen> createState() => _TopicWorksheetScreenState();
 }
 
-class _TopicWorksheetScreenState extends State<_TopicWorksheetScreen> {
+class _TopicWorksheetScreenState extends State<TopicWorksheetScreen> {
   bool _isPreparingPdf = false;
 
   Future<Uint8List> _buildPdfBytes() async {
@@ -1422,10 +1483,19 @@ class _TopicWorksheetScreenState extends State<_TopicWorksheetScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: _cardDecoration,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('$number.', style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
           const SizedBox(width: 10),
-          Text(prompt, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          // Expanded so a long question (or a multi-line generated prompt,
+          // e.g. Lecture Assessments' "...?\n_________________" blanks)
+          // wraps within the row instead of overflowing past the screen edge.
+          Expanded(
+            child: Text(
+              prompt,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            ),
+          ),
         ],
       ),
     );

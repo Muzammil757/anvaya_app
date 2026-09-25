@@ -19,7 +19,7 @@ dependencies:
   printing: ^5.13.0
   http: ^1.2.2
   speech_to_text: ^7.0.0
-  shared_preferences: ^2.3.2
+  shared_preferences: ^2.5.5
   audioplayers: ^6.0.0
   sqflite_common_ffi: ^2.4.3
 
