@@ -208,12 +208,12 @@ List<String> _generateMathWeek2() {
   return pool.take(5).toList();
 }
 
-/// Days of the Week + EVS questions, shuffled, 5 items, each with a blank
-/// answer line beneath it.
+/// English weekday word puzzles + EVS questions, shuffled, 5 items, each
+/// with a blank answer line beneath it (the puzzles already carry their
+/// own inline blanks).
 List<String> _generateLanguageWeek1() {
   final pool = <String>[
-    for (final card in languageChantUnits[0].cards)
-      'Translate to Santali: ${card.english}\n_________________',
+    ...languageWeekdayPuzzleQuestions,
     for (final item in languageQnAItems) '${item.question}\n_________________',
   ]..shuffle();
   return pool.take(5).toList();

@@ -5,18 +5,21 @@
 // the very first frame — no staggered "logo alone, then text catches up"
 // entrance animation, which previously read as two separate splash
 // screens shown back to back. Holds for _holdDuration, then
-// Navigator.pushReplacement straight to TeacherAuthScreen (which itself
-// hands off to HomeDashboard on a successful login) — so the splash route
-// never lingers in the back stack.
+// Navigator.pushReplacement to HomeDashboard (if main.dart's boot check
+// found 'isLoggedIn' already true) or TeacherAuthScreen otherwise — so
+// the splash route never lingers in the back stack either way.
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'home_dashboard.dart';
 import 'teacher_auth_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, required this.isLoggedIn});
+
+  final bool isLoggedIn;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -36,7 +39,9 @@ class _SplashScreenState extends State<SplashScreen> {
   void _goToNext() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const TeacherAuthScreen()),
+      MaterialPageRoute(
+        builder: (_) => widget.isLoggedIn ? const HomeDashboard() : const TeacherAuthScreen(),
+      ),
     );
   }
 
@@ -86,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'AI-Powered Foundational Multilingual Learning Suite',
+                  'Offline-First Foundational Learning',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 21,

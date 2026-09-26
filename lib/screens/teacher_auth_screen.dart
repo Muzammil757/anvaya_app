@@ -8,12 +8,15 @@
 // DatabaseService, [_authenticate] is the only place that needs to
 // change; everything else in this file is unaffected.
 //
-// Not currently wired into the app's launch flow (SplashScreen still
-// pushes straight to HomeDashboard) — this screen is ready to drop in as
-// a gate in front of it whenever that's wanted.
+// This is the app's actual launch gate — SplashScreen pushes here unless
+// SharedPreferences' 'isLoggedIn' flag is already true (see main.dart),
+// and a successful login here is what sets that flag. HomeDashboard's
+// drawer "Log Out" is the inverse of this screen's _handleLogin: it
+// clears 'isLoggedIn' and routes back here.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme.dart';
 import 'home_dashboard.dart';
@@ -69,6 +72,14 @@ class _TeacherAuthScreenState extends State<TeacherAuthScreen> {
     if (!mounted) return;
 
     if (success) {
+      // Persisted so main.dart can skip straight to HomeDashboard on the
+      // next cold start, and so HomeDashboard's drawer has a real teacher
+      // identity to show rather than a hardcoded placeholder.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('teacherName', _teacherIdController.text.trim());
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Welcome to Class 3')),
       );

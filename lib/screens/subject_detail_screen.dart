@@ -2,22 +2,26 @@
 //
 // ANVAYA — Lecture Mode: subject detail (tabbed categories).
 //
-// Reached by tapping a Subject Card on LectureModeScreen. Math gets 2
-// tabs (Rhythmic Chant, Q&A Practice); Language gets 3 (Interactive
-// Scene, Rhythmic Chant, Q&A Practice).
+// Reached by tapping a Subject Card on LectureModeScreen. Both Math and
+// Language get the same 3 tabs (Interactive Scene, Rhythmic Chant, Q&A
+// Practice) — only the content behind each tab differs per subject.
 //
 // UNIVERSAL DRILL-DOWN PATTERN: every tab renders a ListView of
-// [_TopicCard]s rather than content directly — the Rhythmic Chant tab
-// ([ChantUnitsView]/[_UnitCard]) already worked this way; every other tab
-// now matches it, so tapping a topic always pushes a dedicated screen
-// rather than some tabs drilling down and others rendering inline.
+// [TopicCard]s (../widgets/topic_card.dart) rather than content directly —
+// the Rhythmic Chant tab ([ChantUnitsView]/[_UnitCard]) already worked
+// this way; every other tab now matches it, so tapping a topic always
+// pushes a dedicated screen rather than some tabs drilling down and
+// others rendering inline.
 
 import 'package:flutter/material.dart';
 
 import '../data/lecture_mode_content.dart';
+import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/topic_card.dart';
 import 'flashcard_player_screen.dart';
 import 'interactive_classroom_view.dart';
+import 'math_interactive_screen.dart';
 import 'orf_reading_screen.dart';
 
 class SubjectDetailScreen extends StatelessWidget {
@@ -30,12 +34,18 @@ class SubjectDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = _isMath
-        ? const [Tab(text: 'Rhythmic Chant'), Tab(text: 'Q&A Practice')]
-        : const [Tab(text: 'Interactive Scene'), Tab(text: 'Rhythmic Chant'), Tab(text: 'Q&A Practice')];
+    // Both subjects now share the same 3-tab shape (Interactive Scene,
+    // Rhythmic Chant, Q&A Practice) — only the content behind each tab
+    // differs.
+    const tabs = [
+      Tab(text: 'Interactive Scene'),
+      Tab(text: 'Rhythmic Chant'),
+      Tab(text: 'Q&A Practice'),
+    ];
 
     final tabViews = _isMath
         ? const [
+            _MathInteractiveUnitsView(),
             ChantUnitsView(units: mathChantUnits),
             _MathQnAUnitsView(),
           ]
@@ -66,72 +76,10 @@ class SubjectDetailScreen extends StatelessWidget {
 }
 
 // =============================================================================
-// _TopicCard — the universal drill-down row, reused by every tab below
-// =============================================================================
-
-/// A tappable topic row: leading accent icon, title + subtitle, trailing
-/// chevron. Same Card/InkWell shape, padding, and (themed, zero) elevation
-/// as the Rhythmic Chant tab's [_UnitCard], so every tab's cards look and
-/// feel identical regardless of what they drill down into.
-class _TopicCard extends StatelessWidget {
-  const _TopicCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: iconBackground, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, color: iconColor),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+// TopicCard — the universal drill-down row, reused by every tab below
+// (promoted to ../widgets/topic_card.dart so teacher_vault_screen.dart's
+// cards share the exact same implementation, not a re-implemented
+// lookalike).
 // =============================================================================
 // ChantUnitsView — list of Unit Cards, each opening FlashcardPlayerScreen
 // =============================================================================
@@ -199,6 +147,34 @@ class _UnitCard extends StatelessWidget {
 }
 
 // =============================================================================
+// Math, Tab 1 — Interactive Scene: drill-down into the Equal Sharing
+// drag-and-drop manipulative
+// =============================================================================
+
+class _MathInteractiveUnitsView extends StatelessWidget {
+  const _MathInteractiveUnitsView();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        TopicCard(
+          title: 'Unit 1: Equal Sharing',
+          subtitle: 'Drag & Drop Division',
+          icon: Icons.shopping_basket_rounded,
+          iconColor: AppTheme.skyAccent,
+          iconBackground: AppTheme.skyContainer,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MathInteractiveScreen()),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
 // Language, Tab 1 — Interactive Scene: drill-down into Our School / ORF
 // =============================================================================
 
@@ -210,7 +186,7 @@ class _LanguageInteractiveUnitsView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _TopicCard(
+        TopicCard(
           title: 'Unit 1: Our School',
           subtitle: 'Interactive Classroom Scene',
           icon: Icons.school_rounded,
@@ -221,7 +197,7 @@ class _LanguageInteractiveUnitsView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        _TopicCard(
+        TopicCard(
           title: 'Unit 2: Reading Fluency',
           subtitle: 'Stopwatch ORF Assessment',
           icon: Icons.timer_rounded,
@@ -266,7 +242,7 @@ class _MathQnAUnitsView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _TopicCard(
+        TopicCard(
           title: 'Unit 1: Division Practice',
           subtitle: '${mathDivisionQnAItems.length} questions',
           icon: Icons.calculate_rounded,
@@ -282,7 +258,7 @@ class _MathQnAUnitsView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        _TopicCard(
+        TopicCard(
           title: 'Unit 2: Multiplication Practice',
           subtitle: '${mathMultiplicationQnAItems.length} questions',
           icon: Icons.grid_view_rounded,
@@ -310,7 +286,7 @@ class _LanguageQnAUnitsView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _TopicCard(
+        TopicCard(
           title: 'Unit 1: General Knowledge',
           subtitle: 'Basic awareness questions',
           icon: Icons.quiz_rounded,
@@ -428,17 +404,20 @@ class _LanguageQnARow extends StatelessWidget {
   final LanguageQnAItem item;
 
   void _playQuestionAudio() {
-    // plays question mp3
-    debugPrint('Audio: question mp3 -> "${item.question}"');
+    final path = item.questionAudioPath;
+    if (path != null) AudioService.instance.playLocalAudio(path);
   }
 
   void _playAnswerAudio() {
-    // plays answer mp3
-    debugPrint('Audio: answer mp3 -> "${item.answer}"');
+    final path = item.answerAudioPath;
+    if (path != null) AudioService.instance.playLocalAudio(path);
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasQuestionAudio = item.questionAudioPath != null;
+    final hasAnswerAudio = item.answerAudioPath != null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: Padding(
@@ -455,7 +434,9 @@ class _LanguageQnARow extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: _playQuestionAudio,
+                  // Null onPressed renders visibly disabled — dimmed
+                  // rather than silently doing nothing when tapped.
+                  onPressed: hasQuestionAudio ? _playQuestionAudio : null,
                   tooltip: 'Play question audio',
                   color: AppTheme.skyAccent,
                   icon: const Icon(Icons.volume_up_rounded),
@@ -473,7 +454,7 @@ class _LanguageQnARow extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: _playAnswerAudio,
+                    onPressed: hasAnswerAudio ? _playAnswerAudio : null,
                     tooltip: 'Play answer audio',
                     color: AppTheme.mintAccent,
                     icon: const Icon(Icons.volume_up_rounded),

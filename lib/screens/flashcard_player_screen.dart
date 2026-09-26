@@ -3,25 +3,31 @@
 // ANVAYA — Lecture Mode: the Rhythmic Chant flashcard player.
 //
 // Reached by tapping a Unit Card in ChantUnitsView. A PageView of
-// [ChantCard]s with a bottom controls row:
-//   [Prev] [Play] [Next]   ...spacer...   [Slideshow toggle]
+// [ChantCard]s with a bottom controls row, evenly spaced:
+//   [ < ]   [ Play/Pause ]   [ > ]   [ Slideshow ]
 //
-// - Play only plays the audio for whichever card is currently on screen.
+// - Play/Pause is a real toggle (isAudioPlaying): tapping it plays the
+//   current card's clip and flips the icon to Pause; tapping again stops
+//   playback and flips back to Play. Switching cards (swipe, arrow, or a
+//   slideshow advance) resets it to the Play state, since nothing is
+//   actively playing for the newly-shown card until something explicitly
+//   starts it again.
 // - Prev/Next manually page one card at a time, and — matching the
 //   existing lecture_screen.dart convention elsewhere in this app —
 //   interrupt an active slideshow rather than fighting it.
 // - The slideshow toggle starts/stops a Timer that auto-advances the
-//   PageController every 3 seconds, stopping naturally at the last card.
+//   PageController every 2.5 seconds, playing each newly-shown card's audio
+//   as it arrives, and stopping naturally at the last card.
 //
-// 100% OFFLINE: _playCurrentCardAudio is a dummy hook (see its body) — no
-// network/cloud TTS call. Wire it to a bundled audio asset via
-// `audioplayers`, matching the rest of the app, once the clips exist.
+// 100% OFFLINE: every clip plays via AudioService from a bundled
+// assets/audio/ file — no network/cloud TTS call.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../data/lecture_mode_content.dart';
+import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 
 class FlashcardPlayerScreen extends StatefulWidget {
@@ -35,12 +41,13 @@ class FlashcardPlayerScreen extends StatefulWidget {
 }
 
 class _FlashcardPlayerScreenState extends State<FlashcardPlayerScreen> {
-  static const _slideshowInterval = Duration(seconds: 3);
+  static const _slideshowInterval = Duration(milliseconds: 2500);
 
   final PageController _pageController = PageController();
   int _currentIndex = 0;
   Timer? _slideshowTimer;
   bool _isSlideshowActive = false;
+  bool isAudioPlaying = false;
 
   @override
   void dispose() {
@@ -50,7 +57,13 @@ class _FlashcardPlayerScreenState extends State<FlashcardPlayerScreen> {
   }
 
   void _onPageChanged(int index) {
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      // A new card is on screen — nothing is actively playing for it yet,
+      // so the Play/Pause button resets to its "Play" state regardless of
+      // what the previous card's toggle was showing.
+      isAudioPlaying = false;
+    });
   }
 
   void _goToPage(int index) {
@@ -77,11 +90,23 @@ class _FlashcardPlayerScreenState extends State<FlashcardPlayerScreen> {
 
   /// Plays audio for ONLY the card currently on screen — never the whole
   /// unit — regardless of how that card was reached (swipe, arrow, or
-  /// slideshow auto-advance).
-  void _playCurrentCardAudio() {
-    final card = widget.cards[_currentIndex];
-    // TTS: English Audio
-    debugPrint('TTS: English Audio -> "${card.english}"');
+  /// slideshow auto-advance). A null [ChantCard.audioPath] is a no-op.
+  void _playCardAudio(int index) {
+    final audioPath = widget.cards[index].audioPath;
+    if (audioPath != null) {
+      AudioService.instance.playLocalAudio(audioPath);
+    }
+  }
+
+  /// The Play/Pause control: toggles [isAudioPlaying] and starts/stops
+  /// the current card's clip to match.
+  void _toggleAudioPlayback() {
+    setState(() => isAudioPlaying = !isAudioPlaying);
+    if (isAudioPlaying) {
+      _playCardAudio(_currentIndex);
+    } else {
+      AudioService.instance.stop();
+    }
   }
 
   void _toggleSlideshow() {
@@ -94,12 +119,20 @@ class _FlashcardPlayerScreenState extends State<FlashcardPlayerScreen> {
 
   void _startSlideshow() {
     setState(() => _isSlideshowActive = true);
+    // Play the card already on screen immediately, not just on the first
+    // subsequent advance.
+    _playCardAudio(_currentIndex);
     _slideshowTimer = Timer.periodic(_slideshowInterval, (_) {
       if (_currentIndex >= widget.cards.length - 1) {
         _stopSlideshow();
         return;
       }
-      _goToPage(_currentIndex + 1);
+      final nextIndex = _currentIndex + 1;
+      _goToPage(nextIndex);
+      // Every card-index change during the slideshow must trigger that
+      // card's own audio — _goToPage only animates the PageController, it
+      // doesn't play anything on its own.
+      _playCardAudio(nextIndex);
     });
   }
 
@@ -146,26 +179,24 @@ class _FlashcardPlayerScreenState extends State<FlashcardPlayerScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _ControlButton(
             icon: Icons.arrow_back_ios_new_rounded,
             tooltip: 'Previous card',
             onPressed: isFirst ? null : _goPrevious,
           ),
-          const SizedBox(width: 12),
           _ControlButton(
-            icon: Icons.play_arrow_rounded,
-            tooltip: 'Play this card\'s audio',
-            onPressed: _playCurrentCardAudio,
+            icon: isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            tooltip: isAudioPlaying ? 'Pause' : 'Play this card\'s audio',
+            onPressed: _toggleAudioPlayback,
             filled: true,
           ),
-          const SizedBox(width: 12),
           _ControlButton(
             icon: Icons.arrow_forward_ios_rounded,
             tooltip: 'Next card',
             onPressed: isLast ? null : _goNext,
           ),
-          const Spacer(),
           _ControlButton(
             icon: _isSlideshowActive ? Icons.stop_circle_rounded : Icons.slideshow_rounded,
             tooltip: _isSlideshowActive ? 'Stop slideshow' : 'Start slideshow',
@@ -304,15 +335,15 @@ class _ControlButton extends StatelessWidget {
       child: Material(
         color: enabled ? baseColor : baseColor.withValues(alpha: 0.35),
         shape: const CircleBorder(),
-        elevation: (filled || active) ? 2 : 0,
+        elevation: (filled || active) ? 3 : 0,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(18),
             child: Icon(
               icon,
-              size: 24,
+              size: 30,
               color: enabled ? foreground : foreground.withValues(alpha: 0.5),
             ),
           ),

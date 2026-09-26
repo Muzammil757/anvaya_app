@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/archive_log_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/curriculum_progress_card.dart';
 import 'lecture_mode_screen.dart';
 import 'qna_screen.dart';
+import 'teacher_auth_screen.dart';
+import 'teacher_vault_screen.dart';
 import 'worksheet_screen.dart';
 
 /// The landing screen for the ANVAYA platform.
 ///
 /// ANVAYA is the overarching offline-first platform shell; "Class 3 Math"
 /// (in Hindi / Santali) is surfaced here as the currently active learning
-/// module via the context selector and Action Centre. A 2-destination
-/// bottom nav switches between the Home dashboard and the Archive / Vault
-/// of previously cached materials.
+/// module via the context selector and Action Centre. A 3-destination
+/// bottom nav (Home / Teacher Space / Archive) switches between the Home
+/// dashboard, the Teacher Resource Vault of curriculum/digital-resource
+/// shortcuts, and the Archive of logged classroom activity. A drawer
+/// (hamburger menu, top-left) holds account-level actions — My Students
+/// (stub) and Log Out.
 class HomeDashboard extends StatefulWidget {
   const HomeDashboard({super.key});
 
@@ -23,28 +29,41 @@ class HomeDashboard extends StatefulWidget {
 class _HomeDashboardState extends State<HomeDashboard> {
   int _navIndex = 0;
 
-  /// Bumped every time the Archive / Vault tab is selected, so
-  /// [_ArchiveVaultTab] (kept alive offstage by [IndexedStack] rather than
-  /// rebuilt from scratch) knows to re-fetch its activity logs — otherwise
-  /// it would only ever show whatever was logged before its very first
-  /// visit this session.
+  /// Bumped every time the Archive tab is selected, so [_ArchiveVaultTab]
+  /// (kept alive offstage by [IndexedStack] rather than rebuilt from
+  /// scratch) knows to re-fetch its activity logs — otherwise it would
+  /// only ever show whatever was logged before its very first visit this
+  /// session.
   int _archiveRefreshTick = 0;
 
   void _onDestinationSelected(int index) {
     setState(() {
       _navIndex = index;
-      if (index == 1) _archiveRefreshTick++;
+      if (index == 2) _archiveRefreshTick++;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const _DashboardHeader(),
+      appBar: AppBar(
+        title: const Text(
+          'ANVAYA',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Center(child: _AirGappedChip()),
+          ),
+        ],
+      ),
+      drawer: const _AccountDrawer(),
       body: IndexedStack(
         index: _navIndex,
         children: [
           const _HomeTab(),
+          const TeacherVaultScreen(),
           _ArchiveVaultTab(refreshTick: _archiveRefreshTick),
         ],
       ),
@@ -57,8 +76,12 @@ class _HomeDashboardState extends State<HomeDashboard> {
             label: 'Home',
           ),
           NavigationDestination(
+            icon: Icon(Icons.folder_copy_rounded),
+            label: 'Teacher Space',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.inventory_2_rounded),
-            label: 'Archive / Vault',
+            label: 'Archive',
           ),
         ],
       ),
@@ -66,93 +89,128 @@ class _HomeDashboardState extends State<HomeDashboard> {
   }
 }
 
-/// Custom app bar: a brand icon tile pinned left, a centered ANVAYA
-/// title/subtitle block, and the Air-Gapped badge pinned right, all inside
-/// one evenly padded row — built by hand (rather than [AppBar]'s
-/// leading/title/actions slots) so the 20/14 padding applies uniformly and
-/// the icon tile never brushes the screen edge.
-class _DashboardHeader extends StatelessWidget implements PreferredSizeWidget {
-  const _DashboardHeader();
+/// The hamburger-menu drawer: a header showing the signed-in teacher's
+/// name (persisted at login — see teacher_auth_screen.dart), "My
+/// Students" (a stub for now), and "Log Out".
+class _AccountDrawer extends StatefulWidget {
+  const _AccountDrawer();
 
-  // A PreferredSizeWidget's preferredSize getter has no BuildContext, so it
-  // can't read the device's actual status-bar inset to size itself exactly
-  // — Scaffold allocates precisely this many logical pixels for the whole
-  // header, full stop, regardless of what SafeArea adds inside it. 104
-  // budgets ~34dp of headroom on top of the ~70px the content below needs
-  // at a single line each, comfortably covering real Android status bars
-  // (the fixed 78 previously used had none of that headroom, so on a
-  // device with an actual status bar — unlike this app's desktop testing,
-  // which has none — it clipped and overflowed).
   @override
-  Size get preferredSize => const Size.fromHeight(104);
+  State<_AccountDrawer> createState() => _AccountDrawerState();
+}
+
+class _AccountDrawerState extends State<_AccountDrawer> {
+  String? _teacherName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeacherName();
+  }
+
+  Future<void> _loadTeacherName() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _teacherName = prefs.getString('teacherName'));
+  }
+
+  // BUG FIX: the ListTile used to pop (close) the Drawer *before* calling
+  // this method, so by the time the user finished interacting with the
+  // AlertDialog below, the Drawer's own `context` had already been
+  // disposed — the isLoggedIn write still ran, but the final
+  // `context.mounted` guard then silently skipped navigation. The Drawer
+  // is no longer closed early; it now stays open underneath the dialog
+  // (an open drawer behind a modal dialog renders fine) and is swept away
+  // naturally by pushAndRemoveUntil's route-history clear below, so
+  // `context` stays valid for the whole flow.
+  Future<void> _confirmLogOut(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // 1. Await the SharedPreferences update.
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('isLoggedIn', false);
+
+              // 2. Pop the dialog itself.
+              if (context.mounted) Navigator.of(context).pop();
+
+              // 3. Clear the entire routing stack and push the login
+              // screen — this also removes the Drawer along with the
+              // rest of HomeDashboard's route, so there's nothing left
+              // to manually close.
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const TeacherAuthScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.background,
+    return Drawer(
       child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: AppTheme.lavenderContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                // The app's actual brand mark (same asset as the web
-                // favicon/app icons) rather than a generic Material icon,
-                // so the logo is consistent everywhere it appears.
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.contain,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: AppTheme.actionCentreDark),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const CircleAvatar(
+                    radius: 26,
+                    backgroundColor: AppTheme.lavenderAccent,
+                    child: Icon(Icons.person_rounded, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _teacherName?.isNotEmpty == true ? _teacherName! : 'Teacher',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Class 3 • Bridge Module',
+                    style: TextStyle(fontSize: 12.5, color: Colors.white70),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'ANVAYA',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '• FLN Offline Sync • Ready',
-                      textAlign: TextAlign.center,
-                      // Forced to a single line — on a narrow width this
-                      // string would otherwise wrap to two lines and blow
-                      // past the header's fixed height (see preferredSize
-                      // above), which is exactly how this overflow first
-                      // showed up on a real device.
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              const _AirGappedChip(),
-            ],
-          ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.people, color: AppTheme.textPrimary),
+              title: const Text('My Students'),
+              onTap: () {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Feature coming soon')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: AppTheme.roseAccent),
+              title: const Text('Log Out', style: TextStyle(color: AppTheme.roseAccent)),
+              // Deliberately does NOT close the Drawer first — see
+              // _confirmLogOut's doc comment for why that was the actual
+              // navigation bug.
+              onTap: () => _confirmLogOut(context),
+            ),
+          ],
         ),
       ),
     );

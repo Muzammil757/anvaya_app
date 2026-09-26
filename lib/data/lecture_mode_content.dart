@@ -5,10 +5,12 @@
 // subject_detail_screen.dart, and flashcard_player_screen.dart.
 //
 // SANTALI CONTENT CAVEAT: the Latin-script Santali numerals (multiplication
-// answers) and weekday names below are best-effort placeholders, in the
-// same spirit as database_service.dart's seeded Ol Chiki content — they
-// have NOT been checked by a native Santali speaker or FLN curriculum
-// expert. Verify before this ships to a real classroom.
+// answers) below are still best-effort placeholders, in the same spirit as
+// database_service.dart's seeded Ol Chiki content — they have NOT been
+// checked by a native Santali speaker or FLN curriculum expert. Verify
+// before this ships to a real classroom. The weekday names in
+// languageChantUnits, by contrast, were supplied directly and are treated
+// as confirmed-correct.
 //
 // Math tables are deliberately capped at x5 — Santali numerals past 20
 // require compound vigesimal forms ("isi songe...") that would be
@@ -22,10 +24,15 @@ enum LectureSubject { math, language }
 /// headline (equation or day name) and the Santali translation shown
 /// beneath it.
 class ChantCard {
-  const ChantCard({required this.english, required this.santali});
+  const ChantCard({required this.english, required this.santali, this.audioPath});
 
   final String english;
   final String santali;
+
+  /// Filename under assets/audio/ (e.g. 'math_4x1.wav'), or null for a
+  /// card that doesn't have a recorded clip yet — [FlashcardPlayerScreen]'s
+  /// Play button treats null as "nothing to play" rather than erroring.
+  final String? audioPath;
 }
 
 /// One selectable unit in a subject's Rhythmic Chant tab — opens
@@ -41,21 +48,21 @@ const List<ChantUnit> mathChantUnits = [
   ChantUnit(
     title: 'Unit 1: 4 Table',
     cards: [
-      ChantCard(english: '4 x 1 = 4', santali: 'Pon'),
-      ChantCard(english: '4 x 2 = 8', santali: 'Iral'),
-      ChantCard(english: '4 x 3 = 12', santali: 'Gel Bar'),
-      ChantCard(english: '4 x 4 = 16', santali: 'Gel Turi'),
-      ChantCard(english: '4 x 5 = 20', santali: 'Isi'),
+      ChantCard(english: '4 x 1 = 4', santali: 'Pon', audioPath: 'math_4x1.wav'),
+      ChantCard(english: '4 x 2 = 8', santali: 'Iral', audioPath: 'math_4x2.wav'),
+      ChantCard(english: '4 x 3 = 12', santali: 'Gel Bar', audioPath: 'math_4x3.wav'),
+      ChantCard(english: '4 x 4 = 16', santali: 'Gel Turi', audioPath: 'math_4x4.wav'),
+      ChantCard(english: '4 x 5 = 20', santali: 'Isi', audioPath: 'math_4x5.wav'),
     ],
   ),
   ChantUnit(
     title: 'Unit 2: 5 Table',
     cards: [
-      ChantCard(english: '5 x 1 = 5', santali: 'Mone'),
-      ChantCard(english: '5 x 2 = 10', santali: 'Gel'),
-      ChantCard(english: '5 x 3 = 15', santali: 'Gel Mone'),
-      ChantCard(english: '5 x 4 = 20', santali: 'Isi'),
-      ChantCard(english: '5 x 5 = 25', santali: 'Isi Songe Mone'),
+      ChantCard(english: '5 x 1 = 5', santali: 'Mone', audioPath: 'math_5x1.wav'),
+      ChantCard(english: '5 x 2 = 10', santali: 'Gel', audioPath: 'math_5x2.wav'),
+      ChantCard(english: '5 x 3 = 15', santali: 'Gel Mone', audioPath: 'math_5x3.wav'),
+      ChantCard(english: '5 x 4 = 20', santali: 'Isi', audioPath: 'math_5x4.wav'),
+      ChantCard(english: '5 x 5 = 25', santali: 'Isi Songe Mone', audioPath: 'math_5x5.wav'),
     ],
   ),
 ];
@@ -64,15 +71,26 @@ const List<ChantUnit> languageChantUnits = [
   ChantUnit(
     title: 'Unit 1: Days of the Week',
     cards: [
-      ChantCard(english: 'Monday', santali: 'Sombar'),
-      ChantCard(english: 'Tuesday', santali: 'Mangalbar'),
-      ChantCard(english: 'Wednesday', santali: 'Budhbar'),
-      ChantCard(english: 'Thursday', santali: 'Brihaspatibar'),
-      ChantCard(english: 'Friday', santali: 'Sukurbar'),
-      ChantCard(english: 'Saturday', santali: 'Sanibar'),
-      ChantCard(english: 'Sunday', santali: 'Rabibar'),
+      ChantCard(english: 'Monday', santali: 'Ote maha', audioPath: 'day_monday.wav'),
+      ChantCard(english: 'Tuesday', santali: 'Bae maha', audioPath: 'day_tuesday.wav'),
+      ChantCard(english: 'Wednesday', santali: 'Sagen maha', audioPath: 'day_wednesday.wav'),
+      ChantCard(english: 'Thursday', santali: 'Sardi maha', audioPath: 'day_thursday.wav'),
+      ChantCard(english: 'Friday', santali: 'Jarum maha', audioPath: 'day_friday.wav'),
+      ChantCard(english: 'Saturday', santali: 'Nuhum maha', audioPath: 'day_saturday.wav'),
+      ChantCard(english: 'Sunday', santali: 'Sing maha', audioPath: 'day_sunday.wav'),
     ],
   ),
+];
+
+/// English-focused weekday word-puzzle prompts for the "Week 1: Language"
+/// worksheet in lecture_assessments_list_screen.dart — replaced that
+/// worksheet's earlier "Translate to Santali: `day`" prompts (derived from
+/// [languageChantUnits]), since a fill-in/rearrange puzzle exercises
+/// English weekday spelling directly rather than translation.
+const List<String> languageWeekdayPuzzleQuestions = [
+  'Fill in the blank: M _ N D _ Y',
+  'What day comes directly after Friday?\n_________________',
+  'Rearrange the letters to form a weekday: uesTday -> ________',
 ];
 
 /// One Math Q&A Practice row.
@@ -115,18 +133,62 @@ class LanguageQnAItem {
     required this.index,
     required this.question,
     required this.answer,
+    this.questionAudioPath,
+    this.answerAudioPath,
   });
 
   final int index;
   final String question;
   final String answer;
+
+  /// Filenames under assets/audio/, or null if that clip doesn't exist
+  /// yet — [_LanguageQnARow]'s play buttons dim/disable rather than
+  /// erroring when null.
+  final String? questionAudioPath;
+  final String? answerAudioPath;
 }
 
 const List<LanguageQnAItem> languageQnAItems = [
-  LanguageQnAItem(index: 1, question: 'Which animal gives us milk?', answer: 'Cow'),
-  LanguageQnAItem(index: 2, question: 'What is the color of tree leaves?', answer: 'Green'),
-  LanguageQnAItem(index: 3, question: 'What gives us heat and light during the day?', answer: 'Sun'),
-  LanguageQnAItem(index: 4, question: 'What do we drink when we are thirsty?', answer: 'Water'),
-  LanguageQnAItem(index: 5, question: 'How many legs does a dog have?', answer: 'Four'),
-  LanguageQnAItem(index: 6, question: 'What is the color of the sky?', answer: 'Blue'),
+  LanguageQnAItem(
+    index: 1,
+    question: 'Which animal gives us milk?',
+    answer: 'Cow',
+    questionAudioPath: 'evs_q1_question.wav',
+    answerAudioPath: 'evs_q1_answer.wav',
+  ),
+  LanguageQnAItem(
+    index: 2,
+    question: 'What is the color of tree leaves?',
+    answer: 'Green',
+    questionAudioPath: 'evs_q2_question.wav',
+    answerAudioPath: 'evs_q2_answer.wav',
+  ),
+  LanguageQnAItem(
+    index: 3,
+    question: 'What gives us heat and light during the day?',
+    answer: 'Sun',
+    questionAudioPath: 'evs_q3_question.wav',
+    answerAudioPath: 'evs_q3_answer.wav',
+  ),
+  LanguageQnAItem(
+    index: 4,
+    question: 'What do we drink when we are thirsty?',
+    answer: 'Water',
+    questionAudioPath: 'evs_q4_question.wav',
+    answerAudioPath: 'evs_q4_answer.wav',
+  ),
+  LanguageQnAItem(
+    index: 5,
+    question: 'How many legs does a dog have?',
+    answer: 'Four',
+    questionAudioPath: 'evs_q5_question.wav',
+    answerAudioPath: 'evs_q5_answer.wav',
+  ),
+  LanguageQnAItem(
+    index: 6,
+    question: 'What is the color of the sky?',
+    answer: 'Blue',
+    questionAudioPath: 'evs_q6_question.wav',
+    answerAudioPath: 'evs_q6_answer.wav',
+  ),
 ];
