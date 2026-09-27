@@ -1,10 +1,8 @@
 # ANVAYA - Edge-AI Powered Vernacular Pedagogy for Mother-Tongue Primary Education
 
-![SIH 2026](https://img.shields.io/badge/SIH%202026-Problem%20SIH26042-orange)
-![Flutter](https://img.shields.io/badge/Flutter-Framework-02569B?logo=flutter&logoColor=white)
-![100% Offline](https://img.shields.io/badge/100%25-Offline-success)
 
-### 🎥 [Watch the ANVAYA Demo Video Here]([INSERT_YOUR_UNLISTED_YOUTUBE_LINK_HERE])
+
+### 🎥 [Watch the ANVAYA Demo Video Here](https://youtu.be/KAoKCfq-eB0)
 
 ## Overview
 
