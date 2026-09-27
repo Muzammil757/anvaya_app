@@ -44,8 +44,3 @@ flutter build apk --release
 ```
 
 The release artifact is emitted to `build/app/outputs/flutter-apk/app-release.apk`.
-
-## Team InnovexaX
-
-- **Mohammed Muzammil** — Roll No: 160124733254
-- **[Teammate Name]** — Roll No: [XXXXXXXXXXXX]
